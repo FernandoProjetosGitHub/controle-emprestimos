@@ -12,6 +12,7 @@ import {
   Paper,
   TableContainer,
 } from "@mui/material";
+import ClienteDrawer from "../components/ClienteDrawer";
 import NumericField from "../components/NumericField";
 import EditClienteDialog from "../components/EditClienteDialog";
 import ActionIcon from "../components/ActionIcon";
@@ -39,6 +40,7 @@ function Clientes() {
   });
 
   // 📌 FORM
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [nome, setNome] = useState("");
   const [juros, setJuros] = useState("");
 
@@ -56,6 +58,9 @@ function Clientes() {
     localStorage.setItem("clientes", JSON.stringify(clientes));
   }, [clientes]);
 
+  function abrirDrawer() {
+  setDrawerOpen(true);
+}
   // ➕ adicionar
   function adicionarCliente() {
     if (!nome.trim() || !juros) return;
@@ -123,20 +128,20 @@ function Clientes() {
             }}
           >
             <TextField
-  label="Nome"
-  value={nome}
-  onChange={(e) => setNome(e.target.value)}
-  sx={{ minWidth: 200 }}
-/>
-<Box sx={{ minWidth: 120 }}>
-            <NumericField
-  label="Juros (%)"
-  value={juros}
-  onChange={(v) => setJuros(v as string)}
-/>
-</Box>
-            <Button variant="contained" onClick={adicionarCliente}>
-              Salvar
+              label="Nome"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              sx={{ minWidth: 200 }}
+            />
+            <Box sx={{ minWidth: 120 }}>
+              <NumericField
+                label="Juros (%)"
+                value={juros}
+                onChange={(v) => setJuros(v as string)}
+              />
+            </Box>
+            <Button variant="contained" onClick={() => abrirDrawer()}>
+              Cadastrar Cliente
             </Button>
           </Box>
         </Box>
@@ -242,6 +247,33 @@ function Clientes() {
           highlightText="excluir"
           color="#d32f2f"
           icon={<WarningAmberTwoToneIcon sx={{ color: "#d32f2f" }} />}
+        />
+        <ClienteDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          onOpen={resetForm}
+          onSave={(novo) => {
+            const existe = clientes.some(
+              (c) => c.nome.toLowerCase() === novo.nome.toLowerCase(),
+            );
+
+            if (existe) {
+              alert("Cliente já existe");
+              return;
+            }
+
+            setClientes((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                nome: novo.nome,
+                juros: novo.juros,
+                telefone: novo.telefone,
+                endereco: novo.endereco,
+                travado: true,
+              },
+            ]);
+          }}
         />
       </Container>
     </Box>
