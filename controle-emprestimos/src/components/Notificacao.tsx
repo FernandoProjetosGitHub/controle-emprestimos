@@ -1,38 +1,46 @@
-import { Snackbar, Alert } from "@mui/material";
+import { Alert, Snackbar } from "@mui/material";
+import { colors } from "../theme";
 
-// 📌 definição das informações que o componente recebe
 type Props = {
-  mensagem: string;           // texto que aparece na notificação
-  aberto: boolean;            // true = visível, false = escondido
-  onFechar: () => void;       // função chamada quando a notificação fecha
-  tipo: "erro" | "aviso" | "sucesso"; // controla a cor
+  mensagem: string;
+  aberto: boolean;
+  onFechar: () => void;
+  tipo: "erro" | "aviso" | "sucesso";
+};
+
+const severityByTipo = {
+  erro: "error",
+  aviso: "warning",
+  sucesso: "success",
+} as const;
+
+const colorByTipo = {
+  erro: colors.error,
+  aviso: colors.warning,
+  sucesso: colors.success,
 };
 
 export default function Notificacao({ mensagem, aberto, onFechar, tipo }: Props) {
   return (
     <Snackbar
       open={aberto}
-      autoHideDuration={4000}   // some automaticamente após 4 segundos
-      onClose={onFechar}        // também fecha se o usuário clicar no X
+      autoHideDuration={4000}
+      onClose={onFechar}
       anchorOrigin={{
-        vertical: "bottom",     // posição vertical: embaixo
-        horizontal: "center",   // posição horizontal: centro
+        vertical: "bottom",
+        horizontal: "center",
       }}
     >
-      {/*
-        Alert é o componente visual colorido dentro do Snackbar
-        severity recebe o tipo mas o MUI usa nomes em inglês,
-        então fazemos a tradução aqui mesmo
-      */}
       <Alert
         onClose={onFechar}
-        severity={
-          tipo === "erro"    ? "error"   :
-          tipo === "aviso"   ? "warning" :
-          "success"                        // tipo === "sucesso"
-        }
-        variant="filled"  // fundo colorido sólido, mais fácil de ver
-        sx={{ width: "100%" }}
+        severity={severityByTipo[tipo]}
+        variant="filled"
+        sx={{
+          width: "100%",
+          bgcolor: colorByTipo[tipo],
+          color: tipo === "aviso" ? colors.petroleumDark : "#fff",
+          fontWeight: 600,
+        }}
       >
         {mensagem}
       </Alert>

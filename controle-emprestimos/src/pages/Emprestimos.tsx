@@ -1,80 +1,133 @@
+import { useEffect, useState } from "react";
 import {
   Box,
   Button,
+  Chip,
   Container,
-  TextField,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
-  Typography,
+  Paper,
+  Select,
   Table,
+  TableBody,
+  TableCell,
+  TableContainer,
   TableHead,
   TableRow,
-  TableCell,
-  TableBody,
-  Paper,
-  TableContainer,
+  TextField,
+  Typography,
 } from "@mui/material";
 import NumericField from "../components/NumericField";
 import ActionIcon from "../components/ActionIcon";
 import ConfirmDialog from "../components/ConfirmDialog";
+import Notificacao from "../components/Notificacao";
+import TabelaVazia from "../components/TabelaVazia";
 import LockOutlineTwoToneIcon from "@mui/icons-material/LockOutlineTwoTone";
 import LockOpenTwoToneIcon from "@mui/icons-material/LockOpenTwoTone";
 import PaidTwoToneIcon from "@mui/icons-material/PaidTwoTone";
 import CheckCircleTwoToneIcon from "@mui/icons-material/CheckCircleTwoTone";
+import ReplayTwoToneIcon from "@mui/icons-material/ReplayTwoTone";
 import DeleteTwoToneIcon from "@mui/icons-material/DeleteTwoTone";
 import WarningAmberTwoToneIcon from "@mui/icons-material/WarningAmberTwoTone";
-import Notificacao from "../components/Notificacao";
-import { useState, useEffect } from "react";
+import MoneyOffTwoToneIcon from "@mui/icons-material/MoneyOffTwoTone";
 import type { Emprestimo } from "../types/emprestimo";
 import type { Cliente } from "../types/cliente";
-import TabelaVazia from "../components/TabelaVazia";
-import MoneyOffTwoToneIcon from "@mui/icons-material/MoneyOffTwoTone";
+import { colors } from "../theme";
+import { archiveItem, loadList, saveList } from "../utils/storage";
 
+const moeda = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
+type FiltroStatus = "todos" | "emDia" | "pago" | "atrasado";
+type StatusEmprestimo = "pago" | "atrasado" | "emDia";
+
+const statusConfig = {
+  pago: {
+    label: "Pago",
+    color: colors.success,
+    background: "rgba(30, 122, 90, 0.12)",
+  },
+  atrasado: {
+    label: "Atrasado",
+    color: colors.error,
+    background: "rgba(184, 58, 58, 0.13)",
+  },
+  emDia: {
+    label: "Em andamento",
+    color: colors.petroleum,
+    background: "rgba(18, 48, 71, 0.11)",
+  },
+} satisfies Record<StatusEmprestimo, { label: string; color: string; background: string }>;
+
+const filtros = [
+  { label: "Todos", value: "todos" },
+  { label: "Pagos", value: "pago" },
+  { label: "Atrasados", value: "atrasado" },
+  { label: "Em andamento", value: "emDia" },
+] satisfies { label: string; value: FiltroStatus }[];
+
+function getHoje() {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return hoje;
+}
+
+function getStatusEmprestimo(emprestimo: Emprestimo): StatusEmprestimo {
+  if (emprestimo.pago) return "pago";
+
+  const vencimento = new Date(`${emprestimo.vencimento}T00:00:00`);
+  return vencimento < getHoje() ? "atrasado" : "emDia";
+}
 
 function Emprestimos() {
   const [lista, setLista] = useState<Emprestimo[]>(() => {
-    const dados = localStorage.getItem("emprestimos");
-
-    return dados
-      ? JSON.parse(dados).map((e: Emprestimo) => ({
-        ...e,
-        travado: e.travado ?? true,
-      }))
-      : [];
+    return loadList<Emprestimo>("emprestimos").map((emprestimo) => ({
+          ...emprestimo,
+          travado: emprestimo.travado ?? true,
+        }));
   });
-  // 📌 NOTIFICAÇÃO
+
+  const [clientes] = useState<Cliente[]>(() => {
+    return loadList<Cliente>("clientes");
+  });
+
+  const [clienteSelecionado, setClienteSelecionado] = useState("");
+  const [valor, setValor] = useState("");
+  const [vencimento, setVencimento] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
+  const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
+  const [idParaPagar, setIdParaPagar] = useState<string | null>(null);
   const [notificacao, setNotificacao] = useState<{
     mensagem: string;
     tipo: "erro" | "aviso" | "sucesso";
     aberto: boolean;
   }>({ mensagem: "", tipo: "erro", aberto: false });
 
+  const emprestimoSelecionado = lista.find(
+    (emprestimo) => emprestimo.id === idParaPagar,
+  );
+  const pagamentoDialogColor = emprestimoSelecionado?.pago
+    ? colors.warning
+    : colors.success;
+
+  useEffect(() => {
+    saveList("emprestimos", lista);
+  }, [lista]);
+
   function notificar(mensagem: string, tipo: "erro" | "aviso" | "sucesso") {
     setNotificacao({ mensagem, tipo, aberto: true });
   }
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-
-  const [clienteSelecionado, setClienteSelecionado] = useState("");
-  const [valor, setValor] = useState("");
-  const [vencimento, setVencimento] = useState("");
-
-  const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
-  const [idParaPagar, setIdParaPagar] = useState<string | null>(null);
-  const emprestimoSelecionado = lista.find((e) => e.id === idParaPagar);
-  useEffect(() => {
-    const dados = localStorage.getItem("clientes");
-    if (dados) setClientes(JSON.parse(dados));
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("emprestimos", JSON.stringify(lista));
-  }, [lista]);
 
   function toggleLock(id: string) {
     setLista((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, travado: !e.travado } : e)),
+      prev.map((emprestimo) =>
+        emprestimo.id === id
+          ? { ...emprestimo, travado: !emprestimo.travado }
+          : emprestimo,
+      ),
     );
   }
 
@@ -83,10 +136,9 @@ function Emprestimos() {
       return notificar("Preencha todos os campos antes de salvar", "aviso");
     }
 
-    const cliente = clientes.find((c) => c.id === clienteSelecionado);
+    const cliente = clientes.find((item) => item.id === clienteSelecionado);
     const juros = cliente?.juros ?? 0;
-
-    const base = Number(valor);
+    const base = Number(valor) / 100;
     const final = base + (base * juros) / 100;
 
     const novo: Emprestimo = {
@@ -100,53 +152,83 @@ function Emprestimos() {
     };
 
     setLista((prev) => [...prev, novo]);
-
     setValor("");
     setVencimento("");
     setClienteSelecionado("");
+    notificar("Empréstimo registrado com sucesso!", "sucesso");
   }
 
   function confirmarPagamento() {
     if (!idParaPagar) return;
 
     setLista((prev) =>
-      prev.map((e) => (e.id === idParaPagar ? { ...e, pago: !e.pago } : e)),
+      prev.map((emprestimo) =>
+        emprestimo.id === idParaPagar
+          ? { ...emprestimo, pago: !emprestimo.pago }
+          : emprestimo,
+      ),
     );
-
     setIdParaPagar(null);
   }
 
   function confirmarExclusao() {
     if (!idParaExcluir) return;
 
-    setLista((prev) => prev.filter((e) => e.id !== idParaExcluir));
+    const emprestimo = lista.find((item) => item.id === idParaExcluir);
+    if (emprestimo) archiveItem("emprestimos", emprestimo);
 
+    setLista((prev) =>
+      prev.filter((emprestimo) => emprestimo.id !== idParaExcluir),
+    );
     setIdParaExcluir(null);
+    notificar("Empréstimo arquivado com sucesso!", "sucesso");
   }
 
   function getNomeCliente(id: string) {
-    const c = clientes.find((c) => c.id === id);
-    return c ? c.nome : "Desconhecido";
+    const cliente = clientes.find((item) => item.id === id);
+    return cliente ? cliente.nome : "Desconhecido";
   }
 
-  return (
-    <Box sx={{ bgcolor: "#f4f6f8", minHeight: "100vh", p: 3 }}>
-      <Container>
-        {/* FORM */}
-        <Box sx={{ mb: 3, p: 3, bgcolor: "white", borderRadius: 2 }}>
-          <Typography variant="h6">Novo Empréstimo</Typography>
+  const contadores = lista.reduce(
+    (acc, emprestimo) => {
+      acc[getStatusEmprestimo(emprestimo)] += 1;
+      return acc;
+    },
+    { pago: 0, atrasado: 0, emDia: 0 },
+  );
 
-          <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
-            <FormControl sx={{ minWidth: 200 }}>
+  const listaFiltrada = lista.filter((emprestimo) => {
+    return filtroStatus === "todos" || getStatusEmprestimo(emprestimo) === filtroStatus;
+  });
+
+  return (
+    <Box sx={{ bgcolor: "background.default", minHeight: "100vh", p: 3 }}>
+      <Container maxWidth="lg">
+        <Box
+          sx={{
+            mb: 3,
+            p: 3,
+            bgcolor: "background.paper",
+            borderRadius: 2,
+            border: `1px solid ${colors.border}`,
+          }}
+        >
+          <Typography variant="h6">Novo Empréstimo</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Registre valores, vencimentos e acompanhe pagamentos.
+          </Typography>
+
+          <Box sx={{ display: "flex", gap: 2, mt: 2, flexWrap: "wrap" }}>
+            <FormControl sx={{ minWidth: 220 }}>
               <InputLabel>Cliente</InputLabel>
               <Select
                 value={clienteSelecionado}
                 label="Cliente"
                 onChange={(e) => setClienteSelecionado(e.target.value)}
               >
-                {clientes.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.nome} ({c.juros}%)
+                {clientes.map((cliente) => (
+                  <MenuItem key={cliente.id} value={cliente.id}>
+                    {cliente.nome} ({cliente.juros}%)
                   </MenuItem>
                 ))}
               </Select>
@@ -155,7 +237,8 @@ function Emprestimos() {
             <NumericField
               label="Valor"
               value={valor}
-              onChange={(v) => setValor(v as string)}
+              onChange={setValor}
+              sx={{ width: "20ch" }}
             />
 
             <TextField
@@ -166,7 +249,6 @@ function Emprestimos() {
               slotProps={{
                 inputLabel: { shrink: true },
                 htmlInput: {
-                  // datas anteriores a hoje ficam desabilitadas no calendário
                   min: new Date().toISOString().split("T")[0],
                 },
               }}
@@ -178,49 +260,186 @@ function Emprestimos() {
           </Box>
         </Box>
 
-        {/* TABELA */}
-        <TableContainer component={Paper}>
-          <Table>
+        <Box
+          sx={{
+            mb: 2,
+            display: "flex",
+            gap: 1.5,
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+          }}
+        >
+          <FormControl size="small" sx={{ minWidth: 230, bgcolor: "background.paper" }}>
+            <InputLabel>Status do empréstimo</InputLabel>
+            <Select
+              value={filtroStatus}
+              label="Status do empréstimo"
+              onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
+            >
+              {filtros.map((filtro) => (
+                <MenuItem key={filtro.value} value={filtro.value}>
+                  {filtro.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Typography variant="body2" color="text.secondary">
+            {listaFiltrada.length} de {lista.length} empréstimos
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+          <Chip
+            label={`${contadores.emDia} em andamento`}
+            sx={{ bgcolor: statusConfig.emDia.background, color: statusConfig.emDia.color }}
+          />
+          <Chip
+            label={`${contadores.pago} pagos`}
+            sx={{ bgcolor: statusConfig.pago.background, color: statusConfig.pago.color }}
+          />
+          <Chip
+            label={`${contadores.atrasado} atrasados`}
+            sx={{
+              bgcolor: statusConfig.atrasado.background,
+              color: statusConfig.atrasado.color,
+            }}
+          />
+        </Box>
+
+        <TableContainer component={Paper} sx={{ bgcolor: "#fff" }}>
+          <Table sx={{ bgcolor: "#fff" }}>
             <TableHead>
               <TableRow>
                 <TableCell>Cliente</TableCell>
                 <TableCell>Valor</TableCell>
+                <TableCell>Status</TableCell>
                 <TableCell>Vencimento</TableCell>
                 <TableCell align="center">Ações</TableCell>
-                <TableCell align="center">🔒</TableCell>
+                <TableCell align="center">Bloqueio</TableCell>
               </TableRow>
             </TableHead>
 
             <TableBody>
-              {lista.length === 0 ? (
-                // se não há empréstimos, mostra o estado vazio
+              {listaFiltrada.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5}>
-                    {/* colSpan={5} porque a tabela de empréstimos tem 5 colunas */}
+                  <TableCell colSpan={6}>
                     <TabelaVazia
-                      icone={<MoneyOffTwoToneIcon sx={{ fontSize: 64, opacity: 0.3 }} />}
-                      mensagem="Nenhum empréstimo registrado ainda."
-                      textoBotao="Novo Empréstimo"
-                      onAcao={() => {
-                        // scroll suave até o formulário de novo empréstimo
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
+                      icone={<MoneyOffTwoToneIcon sx={{ fontSize: 64 }} />}
+                      mensagem={
+                        lista.length === 0
+                          ? "Nenhum empréstimo registrado ainda."
+                          : "Nenhum empréstimo encontrado para este filtro."
+                      }
+                      textoBotao="Registrar Empréstimo"
+                      onAcao={() =>
+                        window.scrollTo({ top: 0, behavior: "smooth" })
+                      }
                     />
                   </TableCell>
                 </TableRow>
               ) : (
-                // senão, mostra as linhas normais
-                lista.map((e) => (
-                  <TableRow key={e.id}>
-                    {/* ... resto do código não muda */}
-                  </TableRow>
-                ))
+                listaFiltrada.map((emprestimo) => {
+                  const status = getStatusEmprestimo(emprestimo);
+                  const config = statusConfig[status];
+
+                  return (
+                    <TableRow
+                      key={emprestimo.id}
+                      hover
+                      sx={{
+                        bgcolor: config.background,
+                        borderLeft: `4px solid ${config.color}`,
+                        "&:hover": {
+                          bgcolor: config.background,
+                          filter: "brightness(0.985)",
+                        },
+                      }}
+                    >
+                      <TableCell>{getNomeCliente(emprestimo.clienteId)}</TableCell>
+                      <TableCell>{moeda.format(emprestimo.valor)}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={config.label}
+                          size="small"
+                          sx={{
+                            bgcolor: "rgba(255,255,255,0.7)",
+                            color: config.color,
+                            fontWeight: 700,
+                            border: `1px solid ${config.color}33`,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {new Date(
+                          `${emprestimo.vencimento}T00:00:00`,
+                        ).toLocaleDateString("pt-BR")}
+                      </TableCell>
+
+                      <TableCell align="center">
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "center",
+                            gap: 0.5,
+                          }}
+                        >
+                          <ActionIcon
+                            title={
+                              emprestimo.travado
+                                ? "Desbloqueie para alterar"
+                                : emprestimo.pago
+                                  ? "Desfazer pagamento"
+                                  : "Marcar como pago"
+                            }
+                            disabled={emprestimo.travado}
+                            onClick={() => setIdParaPagar(emprestimo.id)}
+                            color={colors.warning}
+                          >
+                            {emprestimo.pago ? (
+                              <ReplayTwoToneIcon />
+                            ) : (
+                              <PaidTwoToneIcon />
+                            )}
+                          </ActionIcon>
+
+                          <ActionIcon
+                            title={
+                              emprestimo.travado
+                                ? "Desbloqueie para arquivar"
+                                : "Arquivar empréstimo"
+                            }
+                            disabled={emprestimo.travado}
+                            onClick={() => setIdParaExcluir(emprestimo.id)}
+                            color={colors.error}
+                          >
+                            <DeleteTwoToneIcon />
+                          </ActionIcon>
+                        </Box>
+                      </TableCell>
+
+                      <TableCell align="center">
+                        <ActionIcon
+                          title={emprestimo.travado ? "Desbloquear" : "Bloquear"}
+                          onClick={() => toggleLock(emprestimo.id)}
+                          color={emprestimo.travado ? colors.muted : colors.warning}
+                        >
+                          {emprestimo.travado ? (
+                            <LockOutlineTwoToneIcon />
+                          ) : (
+                            <LockOpenTwoToneIcon />
+                          )}
+                        </ActionIcon>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </TableContainer>
 
-        {/* DIALOG PAGAMENTO */}
         <ConfirmDialog
           open={!!idParaPagar}
           onClose={() => setIdParaPagar(null)}
@@ -232,22 +451,27 @@ function Emprestimos() {
               ? "reverter pagamento"
               : "marcar como pago"
           }
-          color="#2e7d32"
-          icon={<CheckCircleTwoToneIcon sx={{ color: "#2e7d32" }} />}
+          color={pagamentoDialogColor}
+          icon={
+            emprestimoSelecionado?.pago ? (
+              <ReplayTwoToneIcon sx={{ color: pagamentoDialogColor }} />
+            ) : (
+              <CheckCircleTwoToneIcon sx={{ color: pagamentoDialogColor }} />
+            )
+          }
         />
 
-        {/* DIALOG EXCLUIR */}
         <ConfirmDialog
           open={!!idParaExcluir}
           onClose={() => setIdParaExcluir(null)}
           onConfirm={confirmarExclusao}
-          title="Confirmar exclusão"
-          description="Essa ação é irreversível. Deseja"
-          highlightText="excluir"
-          color="#d32f2f"
-          icon={<WarningAmberTwoToneIcon sx={{ color: "#d32f2f" }} />}
+          title="Confirmar arquivamento"
+          description="O registro sairá da lista principal, mas ficará salvo no arquivo local. Deseja"
+          highlightText="arquivar"
+          color={colors.error}
+          icon={<WarningAmberTwoToneIcon sx={{ color: colors.error }} />}
         />
-        {/* 🔔 NOTIFICAÇÃO */}
+
         <Notificacao
           mensagem={notificacao.mensagem}
           aberto={notificacao.aberto}

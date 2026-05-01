@@ -1,24 +1,22 @@
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Typography,
 } from "@mui/material";
+import type { ReactNode } from "react";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-
   title: string;
   description: string;
-
   highlightText: string;
-
-  color: string; // cor principal (ex: red, green, yellow)
-  icon: React.ReactNode;
+  color: string;
+  icon: ReactNode;
 };
 
 function ConfirmDialog({
@@ -32,47 +30,40 @@ function ConfirmDialog({
   icon,
 }: Props) {
   return (
-<Dialog
-  open={open}
-  onClose={onClose}
-  slotProps={{
-    paper: {
-      sx: { borderRadius: 3, maxWidth: 340 },
-    },
-  }}
->
+    <Dialog
+      open={open}
+      onClose={onClose}
+      slotProps={{
+        paper: {
+          sx: { borderRadius: 2, maxWidth: 360 },
+        },
+      }}
+    >
       <DialogTitle sx={{ display: "flex", gap: 1, alignItems: "center" }}>
         {icon}
         {title}
       </DialogTitle>
 
       <DialogContent>
-        <Typography variant="body2">
-          <strong style={{ color }}>ATENÇÃO:</strong>{" "}
-          {description}{" "}
-          <strong
-            style={{
-              color,
-              textTransform: "uppercase",
-            }}
-          >
+        <Typography variant="body2" color="text.secondary">
+          <strong style={{ color }}>ATENÇÃO:</strong> {description}{" "}
+          <strong style={{ color, textTransform: "uppercase" }}>
             {highlightText}
           </strong>
           .
         </Typography>
       </DialogContent>
 
-      <DialogActions sx={{ justifyContent: "space-between" }}>
+      <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancelar</Button>
-
         <Button
           variant="contained"
           onClick={onConfirm}
           sx={{
             bgcolor: color,
-            fontWeight: "bold",
             "&:hover": {
-              filter: "brightness(0.9)",
+              bgcolor: color,
+              filter: "brightness(0.92)",
             },
           }}
         >

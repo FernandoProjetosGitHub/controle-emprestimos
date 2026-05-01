@@ -2,22 +2,39 @@ import { TextField } from "@mui/material";
 
 type Props = {
   label: string;
-  value: number | "";
-  onChange: (value: number | "") => void;
+  value: string;
+  onChange: (value: string) => void;
+  sx?: object;
 };
 
-export default function NumericField({ label, value, onChange }: Props) {
+function formatCurrency(value: string) {
+  const numeric = value.replace(/\D/g, "");
+
+  if (!numeric) return "";
+
+  const number = Number(numeric) / 100;
+
+  return number.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+export default function NumericField({ label, value, onChange, sx }: Props) {
   return (
     <TextField
       label={label}
-      type="number"
-      value={value === "" ? "" : value}
+      value={formatCurrency(value)}
       onChange={(e) => {
-        const v = e.target.value;
-
-        onChange(v === "" ? "" : Number(v));
+        const raw = e.target.value.replace(/\D/g, "");
+        onChange(raw);
       }}
-      fullWidth
+      sx={sx}
+      slotProps={{
+        htmlInput: {
+          inputMode: "numeric",
+        },
+      }}
     />
   );
 }
