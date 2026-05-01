@@ -36,9 +36,11 @@ export default function EditClienteDialog({
     <Dialog
       open={open}
       onClose={onClose}
+      fullWidth
+      maxWidth="xs"
       slotProps={{
         paper: {
-          sx: { borderRadius: 2, maxWidth: 380 },
+          sx: { borderRadius: 2, mx: 1.5 },
         },
       }}
     >

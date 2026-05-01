@@ -97,12 +97,12 @@ function Clientes() {
   });
 
   return (
-    <Box sx={{ bgcolor: "background.default", minHeight: "100vh", p: 3 }}>
-      <Container maxWidth="lg">
+    <Box sx={{ bgcolor: "background.default", minHeight: "100vh", p: { xs: 1.5, sm: 3 } }}>
+      <Container maxWidth="lg" disableGutters>
         <Box
           sx={{
             mb: 3,
-            p: 3,
+            p: { xs: 2, sm: 3 },
             bgcolor: "background.paper",
             borderRadius: 2,
             border: `1px solid ${colors.border}`,
@@ -119,7 +119,11 @@ function Clientes() {
               Gerencie clientes, juros, telefone e endereço.
             </Typography>
           </Box>
-          <Button variant="contained" onClick={() => setDrawerOpen(true)}>
+          <Button
+            variant="contained"
+            onClick={() => setDrawerOpen(true)}
+            sx={{ width: { xs: "100%", sm: "auto" } }}
+          >
             Novo Cliente
           </Button>
         </Box>
@@ -148,8 +152,8 @@ function Clientes() {
           </Typography>
         </Box>
 
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer component={Paper} sx={{ overflowX: "auto" }}>
+          <Table sx={{ minWidth: 560 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Nome</TableCell>

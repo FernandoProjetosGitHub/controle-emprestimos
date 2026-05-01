@@ -202,12 +202,12 @@ function Emprestimos() {
   });
 
   return (
-    <Box sx={{ bgcolor: "background.default", minHeight: "100vh", p: 3 }}>
-      <Container maxWidth="lg">
+    <Box sx={{ bgcolor: "background.default", minHeight: "100vh", p: { xs: 1.5, sm: 3 } }}>
+      <Container maxWidth="lg" disableGutters>
         <Box
           sx={{
             mb: 3,
-            p: 3,
+            p: { xs: 2, sm: 3 },
             bgcolor: "background.paper",
             borderRadius: 2,
             border: `1px solid ${colors.border}`,
@@ -219,7 +219,7 @@ function Emprestimos() {
           </Typography>
 
           <Box sx={{ display: "flex", gap: 2, mt: 2, flexWrap: "wrap" }}>
-            <FormControl sx={{ minWidth: 220 }}>
+            <FormControl sx={{ minWidth: { xs: "100%", sm: 220 } }}>
               <InputLabel>Cliente</InputLabel>
               <Select
                 value={clienteSelecionado}
@@ -238,7 +238,7 @@ function Emprestimos() {
               label="Valor"
               value={valor}
               onChange={setValor}
-              sx={{ width: "20ch" }}
+              sx={{ width: { xs: "100%", sm: "20ch" } }}
             />
 
             <TextField
@@ -252,9 +252,14 @@ function Emprestimos() {
                   min: new Date().toISOString().split("T")[0],
                 },
               }}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
             />
 
-            <Button variant="contained" onClick={adicionarEmprestimo}>
+            <Button
+              variant="contained"
+              onClick={adicionarEmprestimo}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
+            >
               Salvar
             </Button>
           </Box>
@@ -270,7 +275,10 @@ function Emprestimos() {
             flexWrap: "wrap",
           }}
         >
-          <FormControl size="small" sx={{ minWidth: 230, bgcolor: "background.paper" }}>
+          <FormControl
+            size="small"
+            sx={{ minWidth: { xs: "100%", sm: 230 }, bgcolor: "background.paper" }}
+          >
             <InputLabel>Status do empréstimo</InputLabel>
             <Select
               value={filtroStatus}
@@ -308,8 +316,8 @@ function Emprestimos() {
           />
         </Box>
 
-        <TableContainer component={Paper} sx={{ bgcolor: "#fff" }}>
-          <Table sx={{ bgcolor: "#fff" }}>
+        <TableContainer component={Paper} sx={{ bgcolor: "#fff", overflowX: "auto" }}>
+          <Table sx={{ bgcolor: "#fff", minWidth: 820 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Cliente</TableCell>

@@ -1,4 +1,6 @@
 import {
+  BottomNavigation,
+  BottomNavigationAction,
   Box,
   List,
   ListItemButton,
@@ -30,19 +32,22 @@ const menuItems = [
 function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const currentPath = menuItems.some((item) => item.path === location.pathname)
+    ? location.pathname
+    : "/";
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
       <Box
         component="aside"
         sx={{
-          width: { xs: 86, sm: 240 },
+          width: 240,
           flexShrink: 0,
           bgcolor: colors.petroleum,
           color: "white",
-          display: "flex",
+          display: { xs: "none", sm: "flex" },
           flexDirection: "column",
-          px: { xs: 1, sm: 2 },
+          px: 2,
           py: 3,
           boxShadow: "4px 0 18px rgba(15, 23, 42, 0.16)",
         }}
@@ -54,22 +59,9 @@ function Layout() {
             mb: 3,
             fontWeight: 700,
             lineHeight: 1.2,
-            display: { xs: "none", sm: "block" },
           }}
         >
           Controle de Empréstimos
-        </Typography>
-
-        <Typography
-          variant="h6"
-          sx={{
-            mb: 3,
-            fontWeight: 700,
-            textAlign: "center",
-            display: { xs: "block", sm: "none" },
-          }}
-        >
-          CE
         </Typography>
 
         <List sx={{ display: "grid", gap: 1 }}>
@@ -86,7 +78,7 @@ function Layout() {
                   borderRadius: 1,
                   color: selected ? colors.petroleum : "rgba(255,255,255,0.84)",
                   bgcolor: selected ? "white" : "transparent",
-                  justifyContent: { xs: "center", sm: "flex-start" },
+                  justifyContent: "flex-start",
                   "&:hover": {
                     bgcolor: selected ? "white" : "rgba(255,255,255,0.1)",
                   },
@@ -101,7 +93,7 @@ function Layout() {
                 <ListItemIcon
                   sx={{
                     color: "inherit",
-                    minWidth: { xs: 0, sm: 40 },
+                    minWidth: 40,
                     justifyContent: "center",
                   }}
                 >
@@ -113,7 +105,6 @@ function Layout() {
                       {item.label}
                     </Typography>
                   }
-                  sx={{ display: { xs: "none", sm: "block" } }}
                 />
               </ListItemButton>
             );
@@ -121,12 +112,64 @@ function Layout() {
         </List>
       </Box>
 
-      <Box component="main" sx={{ flex: 1, minWidth: 0 }}>
+      <Box
+        component="main"
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          pb: { xs: 9, sm: 0 },
+        }}
+      >
         <Routes>
           <Route path="/" element={<Clientes />} />
           <Route path="/emprestimos" element={<Emprestimos />} />
           <Route path="/resumo" element={<Resumo />} />
         </Routes>
+      </Box>
+
+      <Box
+        sx={{
+          display: { xs: "block", sm: "none" },
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 1200,
+          borderTop: `1px solid ${colors.border}`,
+          bgcolor: "background.paper",
+          boxShadow: "0 -8px 24px rgba(18, 48, 71, 0.14)",
+        }}
+      >
+        <BottomNavigation
+          showLabels
+          value={currentPath}
+          onChange={(_, value: string) => navigate(value)}
+          sx={{
+            bgcolor: "background.paper",
+            height: 68,
+            "& .MuiBottomNavigationAction-root": {
+              color: colors.muted,
+              minWidth: 0,
+              px: 0.5,
+            },
+            "& .Mui-selected": {
+              color: colors.petroleum,
+            },
+            "& .MuiBottomNavigationAction-label": {
+              fontSize: 11,
+              fontWeight: 700,
+            },
+          }}
+        >
+          {menuItems.map((item) => (
+            <BottomNavigationAction
+              key={item.path}
+              label={item.label}
+              value={item.path}
+              icon={item.icon}
+            />
+          ))}
+        </BottomNavigation>
       </Box>
     </Box>
   );

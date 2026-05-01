@@ -230,12 +230,12 @@ function Resumo() {
   const maiorValor = Math.max(...graficos.map((grafico) => grafico.valor), 0);
 
   return (
-    <Box sx={{ bgcolor: "background.default", minHeight: "100vh", p: 3 }}>
-      <Container maxWidth="lg">
+    <Box sx={{ bgcolor: "background.default", minHeight: "100vh", p: { xs: 1.5, sm: 3 } }}>
+      <Container maxWidth="lg" disableGutters>
         <Box
           sx={{
             mb: 3,
-            p: 3,
+            p: { xs: 2, sm: 3 },
             bgcolor: "background.paper",
             borderRadius: 2,
             border: `1px solid ${colors.border}`,
@@ -255,7 +255,7 @@ function Resumo() {
           ))}
         </Grid>
 
-        <Paper sx={{ mt: 3, p: 3, borderRadius: 2 }}>
+        <Paper sx={{ mt: 3, p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
           <Box
             sx={{
               display: "flex",
@@ -273,11 +273,19 @@ function Resumo() {
               </Typography>
             </Box>
 
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                flexWrap: "wrap",
+                width: { xs: "100%", sm: "auto" },
+              }}
+            >
               <Button
                 variant="outlined"
                 startIcon={<FileDownloadTwoToneIcon />}
                 onClick={exportBackup}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Exportar backup
               </Button>
@@ -285,6 +293,7 @@ function Resumo() {
                 variant="outlined"
                 startIcon={<UploadFileTwoToneIcon />}
                 onClick={() => inputRef.current?.click()}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Importar backup
               </Button>
@@ -292,6 +301,7 @@ function Resumo() {
                 variant="contained"
                 startIcon={<RestoreTwoToneIcon />}
                 onClick={restaurarArquivados}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Restaurar arquivados
               </Button>

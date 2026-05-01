@@ -18,8 +18,10 @@ export default function TabelaVazia({ mensagem, textoBotao, onAcao, icone }: Pro
         alignItems: "center",
         justifyContent: "center",
         py: 8,
+        px: 2,
         gap: 2,
         color: "text.secondary",
+        textAlign: "center",
       }}
     >
       <Box sx={{ fontSize: 64, lineHeight: 1, color: colors.petroleum, opacity: 0.28 }}>

@@ -56,7 +56,7 @@ export default function ClienteDrawer({ open, onClose, onSave }: Props) {
     <Drawer anchor="right" open={open} onClose={handleClose}>
       <Box
         sx={{
-          width: { xs: 320, sm: 380 },
+          width: { xs: "100vw", sm: 380 },
           p: 3,
           display: "flex",
           flexDirection: "column",
