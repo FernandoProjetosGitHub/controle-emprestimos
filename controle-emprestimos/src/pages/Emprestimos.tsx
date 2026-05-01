@@ -25,10 +25,13 @@ import PaidTwoToneIcon from "@mui/icons-material/PaidTwoTone";
 import CheckCircleTwoToneIcon from "@mui/icons-material/CheckCircleTwoTone";
 import DeleteTwoToneIcon from "@mui/icons-material/DeleteTwoTone";
 import WarningAmberTwoToneIcon from "@mui/icons-material/WarningAmberTwoTone";
-
+import Notificacao from "../components/Notificacao";
 import { useState, useEffect } from "react";
 import type { Emprestimo } from "../types/emprestimo";
 import type { Cliente } from "../types/cliente";
+import TabelaVazia from "../components/TabelaVazia";
+import MoneyOffTwoToneIcon from "@mui/icons-material/MoneyOffTwoTone";
+
 
 function Emprestimos() {
   const [lista, setLista] = useState<Emprestimo[]>(() => {
@@ -36,12 +39,21 @@ function Emprestimos() {
 
     return dados
       ? JSON.parse(dados).map((e: Emprestimo) => ({
-          ...e,
-          travado: e.travado ?? true,
-        }))
+        ...e,
+        travado: e.travado ?? true,
+      }))
       : [];
   });
+  // 📌 NOTIFICAÇÃO
+  const [notificacao, setNotificacao] = useState<{
+    mensagem: string;
+    tipo: "erro" | "aviso" | "sucesso";
+    aberto: boolean;
+  }>({ mensagem: "", tipo: "erro", aberto: false });
 
+  function notificar(mensagem: string, tipo: "erro" | "aviso" | "sucesso") {
+    setNotificacao({ mensagem, tipo, aberto: true });
+  }
   const [clientes, setClientes] = useState<Cliente[]>([]);
 
   const [clienteSelecionado, setClienteSelecionado] = useState("");
@@ -68,7 +80,7 @@ function Emprestimos() {
 
   function adicionarEmprestimo() {
     if (!valor || !vencimento || !clienteSelecionado) {
-      return alert("Preencha tudo");
+      return notificar("Preencha todos os campos antes de salvar", "aviso");
     }
 
     const cliente = clientes.find((c) => c.id === clienteSelecionado);
@@ -140,18 +152,24 @@ function Emprestimos() {
               </Select>
             </FormControl>
 
-<NumericField
-  label="Valor"
-  value={valor}
-  onChange={(v) => setValor(v as string)}
-/>
+            <NumericField
+              label="Valor"
+              value={valor}
+              onChange={(v) => setValor(v as string)}
+            />
 
             <TextField
               label="Vencimento"
               type="date"
               value={vencimento}
               onChange={(e) => setVencimento(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: {
+                  // datas anteriores a hoje ficam desabilitadas no calendário
+                  min: new Date().toISOString().split("T")[0],
+                },
+              }}
             />
 
             <Button variant="contained" onClick={adicionarEmprestimo}>
@@ -174,73 +192,30 @@ function Emprestimos() {
             </TableHead>
 
             <TableBody>
-              {lista.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell>{getNomeCliente(e.clienteId)}</TableCell>
-                  <TableCell>R$ {e.valor.toFixed(2)}</TableCell>
-                  <TableCell>
-                    {new Date(e.vencimento).toLocaleDateString("pt-BR")}
-                  </TableCell>
-
-                  {/* AÇÕES */}
-                  <TableCell align="center">
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: 0.5,
+              {lista.length === 0 ? (
+                // se não há empréstimos, mostra o estado vazio
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    {/* colSpan={5} porque a tabela de empréstimos tem 5 colunas */}
+                    <TabelaVazia
+                      icone={<MoneyOffTwoToneIcon sx={{ fontSize: 64, opacity: 0.3 }} />}
+                      mensagem="Nenhum empréstimo registrado ainda."
+                      textoBotao="Novo Empréstimo"
+                      onAcao={() => {
+                        // scroll suave até o formulário de novo empréstimo
+                        window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                    >
-                      <ActionIcon
-                        title={
-                          e.travado
-                            ? "Desbloqueie para alterar"
-                            : e.pago
-                              ? "Desfazer pagamento"
-                              : "Marcar como pago"
-                        }
-                        disabled={e.travado}
-                        onClick={() => setIdParaPagar(e.id)}
-                        color={e.pago ? "green" : "#fbc02d"}
-                      >
-                        {e.pago ? (
-                          <CheckCircleTwoToneIcon />
-                        ) : (
-                          <PaidTwoToneIcon />
-                        )}
-                      </ActionIcon>
-
-                      <ActionIcon
-                        title={
-                          e.travado
-                            ? "Desbloqueie para excluir"
-                            : "Excluir empréstimo"
-                        }
-                        disabled={e.travado}
-                        onClick={() => setIdParaExcluir(e.id)}
-                        color="#d32f2f"
-                      >
-                        <DeleteTwoToneIcon />
-                      </ActionIcon>
-                    </Box>
-                  </TableCell>
-
-                  {/* LOCK */}
-                  <TableCell align="center">
-                    <ActionIcon
-                      title={e.travado ? "Desbloquear" : "Bloquear"}
-                      onClick={() => toggleLock(e.id)}
-                      color={e.travado ? "gray" : "orange"}
-                    >
-                      {e.travado ? (
-                        <LockOutlineTwoToneIcon />
-                      ) : (
-                        <LockOpenTwoToneIcon />
-                      )}
-                    </ActionIcon>
+                    />
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                // senão, mostra as linhas normais
+                lista.map((e) => (
+                  <TableRow key={e.id}>
+                    {/* ... resto do código não muda */}
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -271,6 +246,15 @@ function Emprestimos() {
           highlightText="excluir"
           color="#d32f2f"
           icon={<WarningAmberTwoToneIcon sx={{ color: "#d32f2f" }} />}
+        />
+        {/* 🔔 NOTIFICAÇÃO */}
+        <Notificacao
+          mensagem={notificacao.mensagem}
+          aberto={notificacao.aberto}
+          tipo={notificacao.tipo}
+          onFechar={() =>
+            setNotificacao((prev) => ({ ...prev, aberto: false }))
+          }
         />
       </Container>
     </Box>

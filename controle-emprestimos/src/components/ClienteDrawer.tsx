@@ -1,10 +1,9 @@
 import { Box, Button, Drawer, TextField, Typography } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  onOpen?: () => void;
   onSave: (cliente: {
     nome: string;
     juros: number;

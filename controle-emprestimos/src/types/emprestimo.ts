@@ -1,8 +1,5 @@
-export type Cliente = {
-  id: string;
-  nome: string;
-  telefone?: string;
-};
+import type { Cliente } from "./cliente"; // ← importa a oficial
+export type { Cliente };                  // ← repassa pra quem importar daqui
 
 export type Emprestimo = {
   id: string;
@@ -11,5 +8,5 @@ export type Emprestimo = {
   dataEmprestimo: string;
   vencimento: string;
   pago: boolean;
-  travado: boolean; // 👈 NOVO
+  travado: boolean;
 };
