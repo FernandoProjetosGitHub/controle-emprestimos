@@ -158,6 +158,12 @@ function Emprestimos() {
     notificar("Empréstimo registrado com sucesso!", "sucesso");
   }
 
+  function limparFormulario() {
+    setValor("");
+    setVencimento("");
+    setClienteSelecionado("");
+  }
+
   function confirmarPagamento() {
     if (!idParaPagar) return;
 
@@ -255,13 +261,28 @@ function Emprestimos() {
               sx={{ width: { xs: "100%", sm: "auto" } }}
             />
 
-            <Button
-              variant="contained"
-              onClick={adicionarEmprestimo}
-              sx={{ width: { xs: "100%", sm: "auto" } }}
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                width: { xs: "100%", sm: "auto" },
+              }}
             >
-              Salvar
-            </Button>
+              <Button
+                variant="outlined"
+                onClick={limparFormulario}
+                sx={{ flex: { xs: 1, sm: "initial" } }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="contained"
+                onClick={adicionarEmprestimo}
+                sx={{ flex: { xs: 1, sm: "initial" } }}
+              >
+                Salvar
+              </Button>
+            </Box>
           </Box>
         </Box>
 

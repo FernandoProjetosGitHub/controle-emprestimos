@@ -108,9 +108,19 @@ export default function ClienteDrawer({ open, onClose, onSave }: Props) {
           }
         />
 
-        <Button variant="contained" onClick={handleSave} disabled={isInvalid}>
-          Salvar Cliente
-        </Button>
+        <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+          <Button variant="outlined" onClick={handleClose} sx={{ flex: 1 }}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={isInvalid}
+            sx={{ flex: 1 }}
+          >
+            Salvar
+          </Button>
+        </Box>
       </Box>
     </Drawer>
   );

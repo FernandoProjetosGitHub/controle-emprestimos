@@ -4,9 +4,14 @@ import {
   Box,
   Button,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
   LinearProgress,
   Paper,
+  TextField,
   Typography,
 } from "@mui/material";
 import AccountBalanceWalletTwoToneIcon from "@mui/icons-material/AccountBalanceWalletTwoTone";
@@ -15,6 +20,7 @@ import ReportProblemTwoToneIcon from "@mui/icons-material/ReportProblemTwoTone";
 import FileDownloadTwoToneIcon from "@mui/icons-material/FileDownloadTwoTone";
 import UploadFileTwoToneIcon from "@mui/icons-material/UploadFileTwoTone";
 import RestoreTwoToneIcon from "@mui/icons-material/RestoreTwoTone";
+import LockTwoToneIcon from "@mui/icons-material/LockTwoTone";
 import Notificacao from "../components/Notificacao";
 import type { Cliente } from "../types/cliente";
 import type { Emprestimo } from "../types/emprestimo";
@@ -35,6 +41,10 @@ type ResumoGrafico = {
   fundo: string;
   icone: ReactNode;
 };
+
+type AcaoSegura = "exportar" | "importar" | "restaurar";
+
+const senhaSeguranca = "1234";
 
 const moeda = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -135,6 +145,8 @@ function Resumo() {
     tipo: "erro" | "aviso" | "sucesso";
     aberto: boolean;
   }>({ mensagem: "", tipo: "sucesso", aberto: false });
+  const [acaoSegura, setAcaoSegura] = useState<AcaoSegura | null>(null);
+  const [senha, setSenha] = useState("");
 
   const hoje = useMemo(() => {
     const data = new Date();
@@ -145,6 +157,39 @@ function Resumo() {
   function notificar(mensagem: string, tipo: "erro" | "aviso" | "sucesso") {
     setNotificacao({ mensagem, tipo, aberto: true });
   }
+
+  function fecharConfirmacaoSegura() {
+    setAcaoSegura(null);
+    setSenha("");
+  }
+
+  function confirmarAcaoSegura() {
+    if (senha !== senhaSeguranca) {
+      notificar("Senha de segurança incorreta.", "erro");
+      return;
+    }
+
+    if (acaoSegura === "exportar") {
+      exportBackup();
+      notificar("Backup exportado com sucesso.", "sucesso");
+    }
+
+    if (acaoSegura === "importar") {
+      inputRef.current?.click();
+    }
+
+    if (acaoSegura === "restaurar") {
+      restaurarArquivados();
+    }
+
+    fecharConfirmacaoSegura();
+  }
+
+  const mensagemAcaoSegura = {
+    exportar: "Exportar uma cópia dos dados locais para um arquivo JSON.",
+    importar: "Importar um backup JSON e substituir os dados locais atuais.",
+    restaurar: "Restaurar registros arquivados para as listas principais.",
+  } satisfies Record<AcaoSegura, string>;
 
   function recarregarDados() {
     setEmprestimos(loadList<Emprestimo>("emprestimos"));
@@ -284,7 +329,7 @@ function Resumo() {
               <Button
                 variant="outlined"
                 startIcon={<FileDownloadTwoToneIcon />}
-                onClick={exportBackup}
+                onClick={() => setAcaoSegura("exportar")}
                 sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Exportar backup
@@ -292,7 +337,7 @@ function Resumo() {
               <Button
                 variant="outlined"
                 startIcon={<UploadFileTwoToneIcon />}
-                onClick={() => inputRef.current?.click()}
+                onClick={() => setAcaoSegura("importar")}
                 sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Importar backup
@@ -300,7 +345,7 @@ function Resumo() {
               <Button
                 variant="contained"
                 startIcon={<RestoreTwoToneIcon />}
-                onClick={restaurarArquivados}
+                onClick={() => setAcaoSegura("restaurar")}
                 sx={{ width: { xs: "100%", sm: "auto" } }}
               >
                 Restaurar arquivados
@@ -316,6 +361,56 @@ function Resumo() {
             onChange={handleImport}
           />
         </Paper>
+
+        <Dialog
+          open={!!acaoSegura}
+          onClose={fecharConfirmacaoSegura}
+          fullWidth
+          maxWidth="xs"
+          slotProps={{
+            paper: {
+              sx: { borderRadius: 2, mx: 1.5 },
+            },
+          }}
+        >
+          <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <LockTwoToneIcon sx={{ color: colors.warning }} />
+            Confirmar ação
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {acaoSegura ? mensagemAcaoSegura[acaoSegura] : ""}
+            </Typography>
+            <TextField
+              autoFocus
+              fullWidth
+              label="Senha de segurança"
+              type="password"
+              value={senha}
+              onChange={(event) => setSenha(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") confirmarAcaoSegura();
+              }}
+            />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={fecharConfirmacaoSegura}>Cancelar</Button>
+            <Button
+              variant="contained"
+              onClick={confirmarAcaoSegura}
+              sx={{
+                bgcolor: colors.warning,
+                color: colors.petroleumDark,
+                "&:hover": {
+                  bgcolor: colors.warning,
+                  filter: "brightness(0.95)",
+                },
+              }}
+            >
+              Confirmar
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Notificacao
           mensagem={notificacao.mensagem}
