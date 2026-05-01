@@ -11,7 +11,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import DashboardTwoToneIcon from "@mui/icons-material/DashboardTwoTone";
 import GroupTwoToneIcon from "@mui/icons-material/GroupTwoTone";
 import AccountBalanceWalletTwoToneIcon from "@mui/icons-material/AccountBalanceWalletTwoTone";
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import Clientes from "./pages/Clientes";
 import Emprestimos from "./pages/Emprestimos";
 import Resumo from "./pages/Resumo";
@@ -136,9 +136,9 @@ function App() {
   return (
     <ThemeProvider theme={appTheme}>
       <CssBaseline />
-      <BrowserRouter>
+      <HashRouter>
         <Layout />
-      </BrowserRouter>
+      </HashRouter>
     </ThemeProvider>
   );
 }
