@@ -1,0 +1,33 @@
+{
+  "name": "Controle de Empréstimos",
+  "short_name": "Empréstimos",
+  "description": "Controle local e offline de clientes e empréstimos.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f2e8",
+  "theme_color": "#123047",
+  "icons": [
+    {
+      "src": "pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Resumo",
+      "url": "./#/resumo"
+    },
+    {
+      "name": "Clientes",
+      "url": "./#/"
+    },
+    {
+      "name": "Empréstimos",
+      "url": "./#/emprestimos"
+    }
+  ]
+}
