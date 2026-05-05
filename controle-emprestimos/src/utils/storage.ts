@@ -1,6 +1,18 @@
 const BACKUP_SUFFIX = "_backup";
 const ARCHIVE_SUFFIX = "_arquivados";
 const DATA_KEYS = ["clientes", "emprestimos"] as const;
+const STORAGE_EVENT = "controle-emprestimos-storage";
+
+export type AppData = {
+  clientes: unknown[];
+  emprestimos: unknown[];
+  clientes_arquivados: unknown[];
+  emprestimos_arquivados: unknown[];
+};
+
+export function getStorageEventName() {
+  return STORAGE_EVENT;
+}
 
 export function loadList<T>(key: string): T[] {
   const primary = localStorage.getItem(key);
@@ -17,10 +29,15 @@ export function loadList<T>(key: string): T[] {
   }
 }
 
-export function saveList<T>(key: string, value: T[]) {
+export function saveList<T>(key: string, value: T[], notify = true) {
   const serialized = JSON.stringify(value);
   localStorage.setItem(key, serialized);
   localStorage.setItem(`${key}${BACKUP_SUFFIX}`, serialized);
+  if (notify) {
+    window.dispatchEvent(
+      new CustomEvent(STORAGE_EVENT, { detail: { key, origin: "local" } }),
+    );
+  }
 }
 
 export function archiveItem<T>(key: string, item: T) {
@@ -63,18 +80,11 @@ export function restoreArchivedItems<T extends { id: string }>(key: string) {
 }
 
 export function exportBackup() {
-  const data = DATA_KEYS.reduce(
-    (acc, key) => ({
-      ...acc,
-      [key]: loadList(key),
-      [`${key}${BACKUP_SUFFIX}`]: loadList(`${key}${BACKUP_SUFFIX}`),
-      [`${key}${ARCHIVE_SUFFIX}`]: loadList(`${key}${ARCHIVE_SUFFIX}`),
-    }),
-    {
-      versao: 1,
-      exportadoEm: new Date().toISOString(),
-    } as Record<string, unknown>,
-  );
+  const data = {
+    versao: 1,
+    exportadoEm: new Date().toISOString(),
+    ...loadAppData(),
+  };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",
@@ -88,20 +98,37 @@ export function exportBackup() {
   URL.revokeObjectURL(url);
 }
 
+export function loadAppData(): AppData {
+  return {
+    clientes: loadList("clientes"),
+    emprestimos: loadList("emprestimos"),
+    clientes_arquivados: loadArchivedList("clientes"),
+    emprestimos_arquivados: loadArchivedList("emprestimos"),
+  };
+}
+
+export function saveAppData(data: Partial<AppData>) {
+  if (Array.isArray(data.clientes)) saveList("clientes", data.clientes, false);
+  if (Array.isArray(data.emprestimos)) saveList("emprestimos", data.emprestimos, false);
+  if (Array.isArray(data.clientes_arquivados)) {
+    saveList(`${DATA_KEYS[0]}${ARCHIVE_SUFFIX}`, data.clientes_arquivados, false);
+  }
+  if (Array.isArray(data.emprestimos_arquivados)) {
+    saveList(`${DATA_KEYS[1]}${ARCHIVE_SUFFIX}`, data.emprestimos_arquivados, false);
+  }
+  window.dispatchEvent(
+    new CustomEvent(STORAGE_EVENT, { detail: { origin: "external" } }),
+  );
+}
+
 export async function importBackup(file: File) {
   const content = await file.text();
   const data = JSON.parse(content) as Record<string, unknown>;
 
-  DATA_KEYS.forEach((key) => {
-    const value = data[key];
-    const archivedValue = data[`${key}${ARCHIVE_SUFFIX}`];
-
-    if (Array.isArray(value)) {
-      saveList(key, value);
-    }
-
-    if (Array.isArray(archivedValue)) {
-      saveList(`${key}${ARCHIVE_SUFFIX}`, archivedValue);
-    }
+  saveAppData({
+    clientes: data.clientes as unknown[],
+    emprestimos: data.emprestimos as unknown[],
+    clientes_arquivados: data.clientes_arquivados as unknown[],
+    emprestimos_arquivados: data.emprestimos_arquivados as unknown[],
   });
 }

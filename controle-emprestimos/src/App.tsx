@@ -18,6 +18,8 @@ import Clientes from "./pages/Clientes";
 import Emprestimos from "./pages/Emprestimos";
 import Resumo from "./pages/Resumo";
 import { appTheme, colors } from "./theme";
+import { AuthProvider } from "./contexts/AuthContext";
+import AuthBar from "./components/AuthBar";
 
 const menuItems = [
   { label: "Resumo", path: "/resumo", icon: <DashboardTwoToneIcon /> },
@@ -120,6 +122,7 @@ function Layout() {
           pb: { xs: 9, sm: 0 },
         }}
       >
+        <AuthBar />
         <Routes>
           <Route path="/" element={<Clientes />} />
           <Route path="/emprestimos" element={<Emprestimos />} />
@@ -179,9 +182,11 @@ function App() {
   return (
     <ThemeProvider theme={appTheme}>
       <CssBaseline />
-      <HashRouter>
-        <Layout />
-      </HashRouter>
+      <AuthProvider>
+        <HashRouter>
+          <Layout />
+        </HashRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

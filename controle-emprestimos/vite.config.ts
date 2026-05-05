@@ -3,6 +3,6 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/controle-emprestimos/',
+  base: process.env.TAURI_ENV_PLATFORM ? './' : '/controle-emprestimos/',
   plugins: [react()],
 })

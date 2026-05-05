@@ -27,7 +27,7 @@ import WarningAmberTwoToneIcon from "@mui/icons-material/WarningAmberTwoTone";
 import PersonOffTwoToneIcon from "@mui/icons-material/PersonOffTwoTone";
 import type { Cliente } from "../types/cliente";
 import { colors } from "../theme";
-import { archiveItem, loadList, saveList } from "../utils/storage";
+import { archiveItem, getStorageEventName, loadList, saveList } from "../utils/storage";
 
 function Clientes() {
   const [clientes, setClientes] = useState<Cliente[]>(() => {
@@ -49,6 +49,19 @@ function Clientes() {
   useEffect(() => {
     saveList("clientes", clientes);
   }, [clientes]);
+
+  useEffect(() => {
+    function handleStorageChanged(event: Event) {
+      if ((event as CustomEvent).detail?.origin !== "external") return;
+      setClientes(loadList<Cliente>("clientes"));
+    }
+
+    window.addEventListener(getStorageEventName(), handleStorageChanged);
+
+    return () => {
+      window.removeEventListener(getStorageEventName(), handleStorageChanged);
+    };
+  }, []);
 
   function notificar(mensagem: string, tipo: "erro" | "aviso" | "sucesso") {
     setNotificacao({ mensagem, tipo, aberto: true });

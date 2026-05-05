@@ -34,7 +34,7 @@ import MoneyOffTwoToneIcon from "@mui/icons-material/MoneyOffTwoTone";
 import type { Emprestimo } from "../types/emprestimo";
 import type { Cliente } from "../types/cliente";
 import { colors } from "../theme";
-import { archiveItem, loadList, saveList } from "../utils/storage";
+import { archiveItem, getStorageEventName, loadList, saveList } from "../utils/storage";
 
 const moeda = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -90,7 +90,7 @@ function Emprestimos() {
         }));
   });
 
-  const [clientes] = useState<Cliente[]>(() => {
+  const [clientes, setClientes] = useState<Cliente[]>(() => {
     return loadList<Cliente>("clientes");
   });
 
@@ -116,6 +116,25 @@ function Emprestimos() {
   useEffect(() => {
     saveList("emprestimos", lista);
   }, [lista]);
+
+  useEffect(() => {
+    function handleStorageChanged(event: Event) {
+      if ((event as CustomEvent).detail?.origin !== "external") return;
+      setLista(
+        loadList<Emprestimo>("emprestimos").map((emprestimo) => ({
+          ...emprestimo,
+          travado: emprestimo.travado ?? true,
+        })),
+      );
+      setClientes(loadList<Cliente>("clientes"));
+    }
+
+    window.addEventListener(getStorageEventName(), handleStorageChanged);
+
+    return () => {
+      window.removeEventListener(getStorageEventName(), handleStorageChanged);
+    };
+  }, []);
 
   function notificar(mensagem: string, tipo: "erro" | "aviso" | "sucesso") {
     setNotificacao({ mensagem, tipo, aberto: true });
