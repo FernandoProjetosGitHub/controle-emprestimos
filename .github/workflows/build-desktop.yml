@@ -9,12 +9,12 @@ on:
       - "controle-emprestimos/**"
       - ".github/workflows/build-desktop.yml"
 
+permissions:
+  contents: read
+
 jobs:
   build-windows:
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: controle-emprestimos
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,10 +30,15 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies
+        working-directory: controle-emprestimos
         run: npm ci
 
       - name: Build Tauri app
-        run: npm run desktop:build
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: controle-emprestimos
 
       - name: Upload installers
         uses: actions/upload-artifact@v4
