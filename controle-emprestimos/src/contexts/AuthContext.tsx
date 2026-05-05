@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           saveAppData(snapshot.data());
           window.setTimeout(() => {
             applyingRemote.current = false;
-          }, 0);
+          }, 1000);
           setSyncStatus("sincronizado");
         } else {
           await pushToCloud(currentUser);
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveAppData(snapshot.data());
         window.setTimeout(() => {
           applyingRemote.current = false;
-        }, 0);
+        }, 1000);
         setSyncStatus("sincronizado");
       },
       () => setSyncStatus("erro"),
