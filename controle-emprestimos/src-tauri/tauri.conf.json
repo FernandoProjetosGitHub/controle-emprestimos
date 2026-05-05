@@ -26,7 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": ["nsis"],
     "category": "Finance",
     "shortDescription": "Controle de empréstimos",
     "longDescription": "Aplicativo local para controle de clientes e empréstimos com sincronização opcional via Firebase."
