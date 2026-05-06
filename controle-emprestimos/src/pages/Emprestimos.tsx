@@ -74,6 +74,18 @@ const filtros = [
   { label: "Em andamento", value: "emDia" },
 ] satisfies { label: string; value: FiltroStatus }[];
 
+function getDataHojeInput() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function normalizarDataInput(value: string) {
+  return value.includes("T") ? value.split("T")[0] : value;
+}
+
+function formatarData(value: string) {
+  return new Date(`${normalizarDataInput(value)}T00:00:00`).toLocaleDateString("pt-BR");
+}
+
 function getHoje() {
   return getHojeReferencia();
 }
@@ -99,6 +111,7 @@ function Emprestimos() {
 
   const [clienteSelecionado, setClienteSelecionado] = useState("");
   const [valor, setValor] = useState("");
+  const [dataEmprestimo, setDataEmprestimo] = useState(getDataHojeInput);
   const [vencimento, setVencimento] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
   const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
@@ -162,6 +175,10 @@ function Emprestimos() {
       return notificar("Informe o valor do emprestimo.", "aviso");
     }
 
+    if (!dataEmprestimo) {
+      return notificar("Informe a data em que a pessoa pegou o emprestimo.", "aviso");
+    }
+
     if (!vencimento) {
       return notificar("Informe a data de vencimento.", "aviso");
     }
@@ -175,7 +192,7 @@ function Emprestimos() {
       id: crypto.randomUUID(),
       clienteId: clienteSelecionado,
       valor: final,
-      dataEmprestimo: new Date().toISOString(),
+      dataEmprestimo,
       vencimento,
       pago: false,
       travado: true,
@@ -183,15 +200,10 @@ function Emprestimos() {
 
     setLista((prev) => [...prev, novo]);
     setValor("");
+    setDataEmprestimo(getDataHojeInput());
     setVencimento("");
     setClienteSelecionado("");
     notificar("Empréstimo registrado com sucesso!", "sucesso");
-  }
-
-  function limparFormulario() {
-    setValor("");
-    setVencimento("");
-    setClienteSelecionado("");
   }
 
   function confirmarPagamento() {
@@ -278,6 +290,17 @@ function Emprestimos() {
             />
 
             <TextField
+              label="Data do emprestimo"
+              type="date"
+              value={dataEmprestimo}
+              onChange={(e) => setDataEmprestimo(e.target.value)}
+              slotProps={{
+                inputLabel: { shrink: true },
+              }}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
+            />
+
+            <TextField
               label="Vencimento"
               type="date"
               value={vencimento}
@@ -288,28 +311,13 @@ function Emprestimos() {
               sx={{ width: { xs: "100%", sm: "auto" } }}
             />
 
-            <Box
-              sx={{
-                display: "flex",
-                gap: 1,
-                width: { xs: "100%", sm: "auto" },
-              }}
+            <Button
+              variant="contained"
+              onClick={adicionarEmprestimo}
+              sx={{ width: { xs: "100%", sm: "auto" } }}
             >
-              <Button
-                variant="outlined"
-                onClick={limparFormulario}
-                sx={{ flex: { xs: 1, sm: "initial" } }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="contained"
-                onClick={adicionarEmprestimo}
-                sx={{ flex: { xs: 1, sm: "initial" } }}
-              >
-                Salvar
-              </Button>
-            </Box>
+              Salvar
+            </Button>
           </Box>
         </Box>
 
@@ -365,12 +373,13 @@ function Emprestimos() {
         </Box>
 
         <TableContainer component={Paper} sx={{ bgcolor: "#fff", overflowX: "auto" }}>
-          <Table sx={{ bgcolor: "#fff", minWidth: 820 }}>
+          <Table sx={{ bgcolor: "#fff", minWidth: 920 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Cliente</TableCell>
                 <TableCell>Valor</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Data do emprestimo</TableCell>
                 <TableCell>Vencimento</TableCell>
                 <TableCell align="center">Ações</TableCell>
                 <TableCell align="center">Bloqueio</TableCell>
@@ -380,7 +389,7 @@ function Emprestimos() {
             <TableBody>
               {listaFiltrada.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <TabelaVazia
                       icone={<MoneyOffTwoToneIcon sx={{ fontSize: 64 }} />}
                       mensagem={
@@ -439,9 +448,10 @@ function Emprestimos() {
                         />
                       </TableCell>
                       <TableCell>
-                        {new Date(
-                          `${emprestimo.vencimento}T00:00:00`,
-                        ).toLocaleDateString("pt-BR")}
+                        {formatarData(emprestimo.dataEmprestimo)}
+                      </TableCell>
+                      <TableCell>
+                        {formatarData(emprestimo.vencimento)}
                       </TableCell>
 
                       <TableCell align="center">
