@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   Box,
   Button,
   Chip,
   Container,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -31,6 +32,8 @@ import ReplayTwoToneIcon from "@mui/icons-material/ReplayTwoTone";
 import DeleteTwoToneIcon from "@mui/icons-material/DeleteTwoTone";
 import WarningAmberTwoToneIcon from "@mui/icons-material/WarningAmberTwoTone";
 import MoneyOffTwoToneIcon from "@mui/icons-material/MoneyOffTwoTone";
+import KeyboardArrowDownTwoToneIcon from "@mui/icons-material/KeyboardArrowDownTwoTone";
+import KeyboardArrowRightTwoToneIcon from "@mui/icons-material/KeyboardArrowRightTwoTone";
 import type { Emprestimo } from "../types/emprestimo";
 import type { Cliente } from "../types/cliente";
 import { colors } from "../theme";
@@ -48,6 +51,9 @@ const moeda = new Intl.NumberFormat("pt-BR", {
 
 type FiltroStatus = "todos" | "emDia" | "pago" | "atrasado";
 type StatusEmprestimo = "pago" | "atrasado" | "emDia";
+type LinhaTabela =
+  | { tipo: "simples"; id: string; emprestimo: Emprestimo }
+  | { tipo: "grupo"; id: string; parcelas: Emprestimo[] };
 
 const statusConfig = {
   pago: {
@@ -80,12 +86,15 @@ function getDataHojeInput() {
   return new Date().toISOString().split("T")[0];
 }
 
-function normalizarDataInput(value: string) {
+function normalizarDataInput(value?: string) {
+  if (!value) return "";
   return value.includes("T") ? value.split("T")[0] : value;
 }
 
-function formatarData(value: string) {
-  return new Date(`${normalizarDataInput(value)}T00:00:00`).toLocaleDateString("pt-BR");
+function formatarData(value?: string) {
+  const data = normalizarDataInput(value);
+  if (!data) return "Nao informado";
+  return new Date(`${data}T00:00:00`).toLocaleDateString("pt-BR");
 }
 
 function adicionarMeses(data: string, meses: number) {
@@ -107,6 +116,25 @@ function getStatusEmprestimo(emprestimo: Emprestimo): StatusEmprestimo {
   return vencimento < getHoje() ? "atrasado" : "emDia";
 }
 
+function isParcelado(emprestimo: Emprestimo) {
+  return (emprestimo.parcelasTotal ?? 1) > 1;
+}
+
+function getGrupoParcelasId(emprestimo: Emprestimo) {
+  return (
+    emprestimo.grupoId ??
+    `${emprestimo.clienteId}-${normalizarDataInput(emprestimo.dataEmprestimo) || normalizarDataInput(emprestimo.vencimento)}-${emprestimo.parcelasTotal}-${emprestimo.valor}`
+  );
+}
+
+function getStatusGrupo(parcelas: Emprestimo[]): StatusEmprestimo {
+  if (parcelas.every((parcela) => parcela.pago)) return "pago";
+  if (parcelas.some((parcela) => getStatusEmprestimo(parcela) === "atrasado")) {
+    return "atrasado";
+  }
+  return "emDia";
+}
+
 function Emprestimos() {
   const [lista, setLista] = useState<Emprestimo[]>(() => {
     return loadList<Emprestimo>("emprestimos").map((emprestimo) => ({
@@ -124,6 +152,7 @@ function Emprestimos() {
   const [dataEmprestimo, setDataEmprestimo] = useState(getDataHojeInput);
   const [vencimento, setVencimento] = useState("");
   const [parcelas, setParcelas] = useState(1);
+  const [gruposExpandidos, setGruposExpandidos] = useState<Record<string, boolean>>({});
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
   const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
   const [idParaPagar, setIdParaPagar] = useState<string | null>(null);
@@ -203,12 +232,14 @@ function Emprestimos() {
     const final = base + (base * juros) / 100;
 
     const valorParcela = final / parcelas;
+    const grupoId = parcelas > 1 ? crypto.randomUUID() : undefined;
     const novos: Emprestimo[] = Array.from({ length: parcelas }, (_, index) => ({
       id: crypto.randomUUID(),
       clienteId: clienteSelecionado,
       valor: valorParcela,
       dataEmprestimo,
       vencimento: adicionarMeses(vencimento, index),
+      grupoId,
       parcelaAtual: index + 1,
       parcelasTotal: parcelas,
       pago: false,
@@ -271,6 +302,30 @@ function Emprestimos() {
   const listaFiltrada = lista.filter((emprestimo) => {
     return filtroStatus === "todos" || getStatusEmprestimo(emprestimo) === filtroStatus;
   });
+
+  const linhasTabela = listaFiltrada.reduce<LinhaTabela[]>((linhas, emprestimo) => {
+    if (!isParcelado(emprestimo)) {
+      linhas.push({ tipo: "simples", id: emprestimo.id, emprestimo });
+      return linhas;
+    }
+
+    const grupoId = getGrupoParcelasId(emprestimo);
+    const grupoExistente = linhas.find(
+      (linha): linha is Extract<LinhaTabela, { tipo: "grupo" }> =>
+        linha.tipo === "grupo" && linha.id === grupoId,
+    );
+
+    if (grupoExistente) {
+      grupoExistente.parcelas.push(emprestimo);
+      grupoExistente.parcelas.sort(
+        (a, b) => (a.parcelaAtual ?? 0) - (b.parcelaAtual ?? 0),
+      );
+      return linhas;
+    }
+
+    linhas.push({ tipo: "grupo", id: grupoId, parcelas: [emprestimo] });
+    return linhas;
+  }, []);
 
   return (
     <Box sx={{ bgcolor: "background.default", minHeight: "100vh", p: { xs: 1.5, sm: 3 } }}>
@@ -447,7 +502,7 @@ function Emprestimos() {
             </TableHead>
 
             <TableBody>
-              {listaFiltrada.length === 0 ? (
+              {linhasTabela.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8}>
                     <TabelaVazia
@@ -465,7 +520,176 @@ function Emprestimos() {
                   </TableCell>
                 </TableRow>
               ) : (
-                listaFiltrada.map((emprestimo) => {
+                linhasTabela.map((linha) => {
+                  if (linha.tipo === "grupo") {
+                    const parcelasGrupo = linha.parcelas;
+                    const primeiraParcela = parcelasGrupo[0];
+                    const status = getStatusGrupo(parcelasGrupo);
+                    const config = statusConfig[status];
+                    const aberto = !!gruposExpandidos[linha.id];
+                    const totalAtualizado = parcelasGrupo.reduce(
+                      (acc, parcela) => acc + getValorAtualizadoEmprestimo(parcela),
+                      0,
+                    );
+                    const pagas = parcelasGrupo.filter((parcela) => parcela.pago).length;
+                    const totalParcelas = primeiraParcela.parcelasTotal ?? parcelasGrupo.length;
+
+                    return (
+                      <Fragment key={linha.id}>
+                        <TableRow
+                          key={linha.id}
+                          hover
+                          onClick={() =>
+                            setGruposExpandidos((prev) => ({
+                              ...prev,
+                              [linha.id]: !prev[linha.id],
+                            }))
+                          }
+                          sx={{
+                            cursor: "pointer",
+                            bgcolor: config.background,
+                            borderLeft: `4px solid ${config.color}`,
+                            "&:hover": {
+                              bgcolor: config.background,
+                              filter: "brightness(0.985)",
+                            },
+                          }}
+                        >
+                          <TableCell>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <IconButton size="small" aria-label={aberto ? "Recolher parcelas" : "Expandir parcelas"}>
+                                {aberto ? <KeyboardArrowDownTwoToneIcon /> : <KeyboardArrowRightTwoToneIcon />}
+                              </IconButton>
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                  {getNomeCliente(primeiraParcela.clienteId)}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  Parcelamento mensal
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                              {moeda.format(totalAtualizado)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{pagas}/{totalParcelas} pagas</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={config.label}
+                              size="small"
+                              sx={{
+                                bgcolor: "rgba(255,255,255,0.7)",
+                                color: config.color,
+                                fontWeight: 700,
+                                border: `1px solid ${config.color}33`,
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>{formatarData(primeiraParcela.dataEmprestimo)}</TableCell>
+                          <TableCell>{formatarData(parcelasGrupo[parcelasGrupo.length - 1].vencimento)}</TableCell>
+                          <TableCell align="center">Expandir</TableCell>
+                          <TableCell align="center">Por parcela</TableCell>
+                        </TableRow>
+
+                        {aberto &&
+                          parcelasGrupo.map((emprestimo) => {
+                            const statusParcela = getStatusEmprestimo(emprestimo);
+                            const configParcela = statusConfig[statusParcela];
+                            const valorAtualizado = getValorAtualizadoEmprestimo(emprestimo);
+                            const diasEmAtraso = getDiasEmAtraso(emprestimo.vencimento);
+
+                            return (
+                              <TableRow
+                                key={emprestimo.id}
+                                hover
+                                sx={{
+                                  bgcolor: "#fff",
+                                  borderLeft: `4px solid ${configParcela.color}`,
+                                }}
+                              >
+                                <TableCell sx={{ pl: 7 }}>
+                                  Parcela {emprestimo.parcelaAtual}/{emprestimo.parcelasTotal}
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                    {moeda.format(valorAtualizado)}
+                                  </Typography>
+                                  {diasEmAtraso > 0 && !emprestimo.pago && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      Base {moeda.format(emprestimo.valor)} + 8% ao dia
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell>{emprestimo.parcelaAtual}/{emprestimo.parcelasTotal}</TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={configParcela.label}
+                                    size="small"
+                                    sx={{
+                                      bgcolor: "rgba(255,255,255,0.7)",
+                                      color: configParcela.color,
+                                      fontWeight: 700,
+                                      border: `1px solid ${configParcela.color}33`,
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell>{formatarData(emprestimo.dataEmprestimo)}</TableCell>
+                                <TableCell>{formatarData(emprestimo.vencimento)}</TableCell>
+                                <TableCell align="center">
+                                  <Box sx={{ display: "flex", justifyContent: "center", gap: 0.5 }}>
+                                    <ActionIcon
+                                      title={
+                                        emprestimo.travado
+                                          ? "Desbloqueie para alterar"
+                                          : emprestimo.pago
+                                            ? "Desfazer pagamento"
+                                            : "Marcar como pago"
+                                      }
+                                      disabled={emprestimo.travado}
+                                      onClick={() => setIdParaPagar(emprestimo.id)}
+                                      color={colors.warning}
+                                    >
+                                      {emprestimo.pago ? <ReplayTwoToneIcon /> : <PaidTwoToneIcon />}
+                                    </ActionIcon>
+
+                                    <ActionIcon
+                                      title={
+                                        emprestimo.travado
+                                          ? "Desbloqueie para arquivar"
+                                          : "Arquivar empréstimo"
+                                      }
+                                      disabled={emprestimo.travado}
+                                      onClick={() => setIdParaExcluir(emprestimo.id)}
+                                      color={colors.error}
+                                    >
+                                      <DeleteTwoToneIcon />
+                                    </ActionIcon>
+                                  </Box>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <ActionIcon
+                                    title={emprestimo.travado ? "Desbloquear" : "Bloquear"}
+                                    onClick={() => toggleLock(emprestimo.id)}
+                                    color={emprestimo.travado ? colors.muted : colors.warning}
+                                  >
+                                    {emprestimo.travado ? (
+                                      <LockOutlineTwoToneIcon />
+                                    ) : (
+                                      <LockOpenTwoToneIcon />
+                                    )}
+                                  </ActionIcon>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </Fragment>
+                    );
+                  }
+
+                  const { emprestimo } = linha;
                   const status = getStatusEmprestimo(emprestimo);
                   const config = statusConfig[status];
                   const valorAtualizado = getValorAtualizadoEmprestimo(emprestimo);

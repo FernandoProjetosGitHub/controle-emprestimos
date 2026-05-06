@@ -7,6 +7,7 @@ export type Emprestimo = {
   valor: number;
   dataEmprestimo: string;
   vencimento: string;
+  grupoId?: string;
   parcelaAtual?: number;
   parcelasTotal?: number;
   pago: boolean;
