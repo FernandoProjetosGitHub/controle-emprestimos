@@ -1,4 +1,4 @@
-const CACHE_NAME = "controle-emprestimos-v3";
+const CACHE_NAME = "controle-emprestimos-v4";
 const APP_SHELL = [
   "./",
   "./manifest.webmanifest",
@@ -31,6 +31,19 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
 
   if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) {
+    return;
+  }
+
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put("./", copy));
+          return response;
+        })
+        .catch(() => caches.match("./")),
+    );
     return;
   }
 
