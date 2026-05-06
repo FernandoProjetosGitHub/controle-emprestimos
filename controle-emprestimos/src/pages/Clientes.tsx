@@ -28,6 +28,7 @@ import PersonOffTwoToneIcon from "@mui/icons-material/PersonOffTwoTone";
 import type { Cliente } from "../types/cliente";
 import { colors } from "../theme";
 import { archiveItem, getStorageEventName, loadList, saveList } from "../utils/storage";
+import { normalizarTelefone, normalizarTexto } from "../utils/format";
 
 function Clientes() {
   const [clientes, setClientes] = useState<Cliente[]>(() => {
@@ -67,12 +68,49 @@ function Clientes() {
     setNotificacao({ mensagem, tipo, aberto: true });
   }
 
+  function encontrarDuplicidade(
+    candidato: Pick<Cliente, "nome"> & { telefone?: string },
+    ignorarId?: string,
+  ) {
+    const nome = normalizarTexto(candidato.nome);
+    const telefone = normalizarTelefone(candidato.telefone ?? "");
+
+    const nomeDuplicado = clientes.some(
+      (cliente) =>
+        cliente.id !== ignorarId && normalizarTexto(cliente.nome) === nome,
+    );
+    if (nomeDuplicado) return "Ja existe um cliente com esse nome.";
+
+    const telefoneDuplicado =
+      telefone.length > 0 &&
+      clientes.some(
+        (cliente) =>
+          cliente.id !== ignorarId &&
+          normalizarTelefone(cliente.telefone ?? "") === telefone,
+      );
+    if (telefoneDuplicado) return "Ja existe um cliente com esse telefone.";
+
+    return "";
+  }
+
   function salvarEdicao() {
     if (!clienteEditando) return;
 
+    const duplicidade = encontrarDuplicidade(clienteEditando, clienteEditando.id);
+    if (duplicidade) {
+      notificar(duplicidade, "erro");
+      return;
+    }
+
     setClientes((prev) =>
       prev.map((cliente) =>
-        cliente.id === clienteEditando.id ? clienteEditando : cliente,
+        cliente.id === clienteEditando.id
+          ? {
+              ...clienteEditando,
+              nome: clienteEditando.nome.trim(),
+              endereco: clienteEditando.endereco?.trim(),
+            }
+          : cliente,
       ),
     );
     setClienteEditando(null);
@@ -334,13 +372,10 @@ function Clientes() {
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           onSave={(novo) => {
-            const existe = clientes.some(
-              (cliente) => cliente.nome.toLowerCase() === novo.nome.toLowerCase(),
-            );
-
-            if (existe) {
-              notificar("Cliente já existe", "erro");
-              return;
+            const duplicidade = encontrarDuplicidade(novo);
+            if (duplicidade) {
+              notificar(duplicidade, "erro");
+              return false;
             }
 
             setClientes((prev) => [
@@ -356,6 +391,7 @@ function Clientes() {
             ]);
 
             notificar("Cliente cadastrado com sucesso!", "sucesso");
+            return true;
           }}
         />
 

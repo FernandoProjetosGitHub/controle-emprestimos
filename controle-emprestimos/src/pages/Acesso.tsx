@@ -11,11 +11,12 @@ import {
 } from "@mui/material";
 import LoginTwoToneIcon from "@mui/icons-material/LoginTwoTone";
 import PersonAddAltTwoToneIcon from "@mui/icons-material/PersonAddAltTwoTone";
-import AccountBalanceWalletTwoToneIcon from "@mui/icons-material/AccountBalanceWalletTwoTone";
 import { colors } from "../theme";
 import { useAuth } from "../contexts/AuthContext";
 
 type FormMode = "entrar" | "criar";
+
+const brandLogo = `${import.meta.env.BASE_URL}brand-jurista.png`;
 
 const firebaseErrorMessage: Record<string, string> = {
   "auth/email-already-in-use": "Este email ja possui uma conta.",
@@ -120,28 +121,24 @@ export default function Acesso() {
             bgcolor: "background.paper",
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2.5 }}>
+          <Box sx={{ textAlign: "center", mb: 2.5 }}>
             <Box
+              component="img"
+              src={brandLogo}
+              alt="Jurista"
               sx={{
-                width: 48,
-                height: 48,
-                borderRadius: 1,
-                display: "grid",
-                placeItems: "center",
-                bgcolor: colors.petroleumLight,
-                color: colors.petroleum,
+                width: 104,
+                height: 104,
+                display: "block",
+                mx: "auto",
+                mb: 1.5,
+                borderRadius: "50%",
+                filter: "drop-shadow(0 10px 20px rgba(18, 48, 71, 0.16))",
               }}
-            >
-              <AccountBalanceWalletTwoToneIcon />
-            </Box>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                Controle de Emprestimos
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Acesse para sincronizar desktop e celular.
-              </Typography>
-            </Box>
+            />
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Controle de emprestimos com sincronizacao para desktop e celular.
+            </Typography>
           </Box>
 
           <Box sx={{ display: "grid", gap: 1.5 }}>

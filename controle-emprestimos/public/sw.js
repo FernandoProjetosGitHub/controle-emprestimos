@@ -1,5 +1,11 @@
-const CACHE_NAME = "controle-emprestimos-v2";
-const APP_SHELL = ["./", "./manifest.webmanifest", "./pwa-icon.svg"];
+const CACHE_NAME = "controle-emprestimos-v3";
+const APP_SHELL = [
+  "./",
+  "./manifest.webmanifest",
+  "./brand-jurista.png",
+  "./pwa-icon-192.png",
+  "./pwa-icon-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -35,6 +35,11 @@ import type { Emprestimo } from "../types/emprestimo";
 import type { Cliente } from "../types/cliente";
 import { colors } from "../theme";
 import { archiveItem, getStorageEventName, loadList, saveList } from "../utils/storage";
+import {
+  getDiasEmAtraso,
+  getHojeReferencia,
+  getValorAtualizadoEmprestimo,
+} from "../utils/emprestimos";
 
 const moeda = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -70,9 +75,7 @@ const filtros = [
 ] satisfies { label: string; value: FiltroStatus }[];
 
 function getHoje() {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  return hoje;
+  return getHojeReferencia();
 }
 
 function getStatusEmprestimo(emprestimo: Emprestimo): StatusEmprestimo {
@@ -151,8 +154,16 @@ function Emprestimos() {
   }
 
   function adicionarEmprestimo() {
-    if (!valor || !vencimento || !clienteSelecionado) {
-      return notificar("Preencha todos os campos antes de salvar", "aviso");
+    if (!clienteSelecionado) {
+      return notificar("Selecione um cliente antes de salvar.", "aviso");
+    }
+
+    if (!valor) {
+      return notificar("Informe o valor do emprestimo.", "aviso");
+    }
+
+    if (!vencimento) {
+      return notificar("Informe a data de vencimento.", "aviso");
     }
 
     const cliente = clientes.find((item) => item.id === clienteSelecionado);
@@ -273,9 +284,6 @@ function Emprestimos() {
               onChange={(e) => setVencimento(e.target.value)}
               slotProps={{
                 inputLabel: { shrink: true },
-                htmlInput: {
-                  min: new Date().toISOString().split("T")[0],
-                },
               }}
               sx={{ width: { xs: "100%", sm: "auto" } }}
             />
@@ -391,6 +399,8 @@ function Emprestimos() {
                 listaFiltrada.map((emprestimo) => {
                   const status = getStatusEmprestimo(emprestimo);
                   const config = statusConfig[status];
+                  const valorAtualizado = getValorAtualizadoEmprestimo(emprestimo);
+                  const diasEmAtraso = getDiasEmAtraso(emprestimo.vencimento);
 
                   return (
                     <TableRow
@@ -406,7 +416,16 @@ function Emprestimos() {
                       }}
                     >
                       <TableCell>{getNomeCliente(emprestimo.clienteId)}</TableCell>
-                      <TableCell>{moeda.format(emprestimo.valor)}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                          {moeda.format(valorAtualizado)}
+                        </Typography>
+                        {diasEmAtraso > 0 && !emprestimo.pago && (
+                          <Typography variant="caption" color="text.secondary">
+                            Base {moeda.format(emprestimo.valor)} + 8% ao dia
+                          </Typography>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Chip
                           label={config.label}

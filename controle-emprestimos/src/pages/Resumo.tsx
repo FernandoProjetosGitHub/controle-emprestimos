@@ -31,10 +31,17 @@ import LockTwoToneIcon from "@mui/icons-material/LockTwoTone";
 import VisibilityTwoToneIcon from "@mui/icons-material/VisibilityTwoTone";
 import VisibilityOffTwoToneIcon from "@mui/icons-material/VisibilityOffTwoTone";
 import PriceCheckTwoToneIcon from "@mui/icons-material/PriceCheckTwoTone";
+import SyncTwoToneIcon from "@mui/icons-material/SyncTwoTone";
 import Notificacao from "../components/Notificacao";
 import type { Cliente } from "../types/cliente";
 import type { Emprestimo } from "../types/emprestimo";
 import { colors } from "../theme";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  getDiasEmAtraso,
+  getJurosAtrasoEmprestimo,
+  getValorAtualizadoEmprestimo,
+} from "../utils/emprestimos";
 import {
   exportBackup,
   importBackup,
@@ -51,7 +58,7 @@ type ResumoGrafico = {
   cor: string;
   fundo: string;
   icone: ReactNode;
-  acao?: "juros";
+  acao?: "receber" | "vencidos" | "juros";
 };
 
 type AcaoSegura = "exportar" | "importar" | "restaurar";
@@ -63,6 +70,26 @@ type JurosPorCliente = {
   total: number;
   principalEstimado: number;
   jurosEstimados: number;
+};
+
+type ReceberPorCliente = {
+  clienteId: string;
+  nome: string;
+  quantidade: number;
+  total: number;
+  jurosAtraso: number;
+  vencidos: number;
+  totalVencido: number;
+  proximoVencimento: string;
+};
+
+type VencidosPorCliente = {
+  clienteId: string;
+  nome: string;
+  quantidade: number;
+  total: number;
+  maisAntigo: string;
+  diasEmAtraso: number;
 };
 
 const senhaSeguranca = "1234";
@@ -175,6 +202,7 @@ function GraficoResumo({
 }
 
 function Resumo() {
+  const { forceSync, syncStatus } = useAuth();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>(() =>
     loadList<Emprestimo>("emprestimos"),
@@ -195,8 +223,10 @@ function Resumo() {
   }>({ mensagem: "", tipo: "sucesso", aberto: false });
   const [acaoSegura, setAcaoSegura] = useState<AcaoSegura | null>(null);
   const [senha, setSenha] = useState("");
-  const [mostrarValores, setMostrarValores] = useState(true);
+  const [mostrarValores, setMostrarValores] = useState(false);
   const [modalJurosAberto, setModalJurosAberto] = useState(false);
+  const [modalReceberAberto, setModalReceberAberto] = useState(false);
+  const [modalVencidosAberto, setModalVencidosAberto] = useState(false);
 
   const hoje = useMemo(() => {
     const data = new Date();
@@ -209,6 +239,83 @@ function Resumo() {
     [clientes],
   );
 
+  const receberPorCliente = useMemo<ReceberPorCliente[]>(() => {
+    const acumulado = new Map<string, ReceberPorCliente>();
+
+    emprestimos
+      .filter((emprestimo) => !emprestimo.pago)
+      .forEach((emprestimo) => {
+        const cliente = clientesPorId.get(emprestimo.clienteId);
+        if (!cliente) return;
+
+        const vencimento = new Date(`${emprestimo.vencimento}T00:00:00`);
+        const vencido = vencimento < hoje;
+        const registro = acumulado.get(cliente.id) ?? {
+          clienteId: cliente.id,
+          nome: cliente.nome,
+          quantidade: 0,
+          total: 0,
+          jurosAtraso: 0,
+          vencidos: 0,
+          totalVencido: 0,
+          proximoVencimento: emprestimo.vencimento,
+        };
+        const valorAtualizado = getValorAtualizadoEmprestimo(emprestimo, hoje);
+        const jurosAtraso = getJurosAtrasoEmprestimo(emprestimo, hoje);
+
+        registro.quantidade += 1;
+        registro.total += valorAtualizado;
+        registro.jurosAtraso += jurosAtraso;
+        if (vencido) {
+          registro.vencidos += 1;
+          registro.totalVencido += valorAtualizado;
+        }
+        if (emprestimo.vencimento < registro.proximoVencimento) {
+          registro.proximoVencimento = emprestimo.vencimento;
+        }
+
+        acumulado.set(cliente.id, registro);
+      });
+
+    return [...acumulado.values()].sort((a, b) => b.total - a.total);
+  }, [clientesPorId, emprestimos, hoje]);
+
+  const vencidosPorCliente = useMemo<VencidosPorCliente[]>(() => {
+    const acumulado = new Map<string, VencidosPorCliente>();
+
+    emprestimos
+      .filter((emprestimo) => {
+        if (emprestimo.pago) return false;
+        const vencimento = new Date(`${emprestimo.vencimento}T00:00:00`);
+        return vencimento < hoje;
+      })
+      .forEach((emprestimo) => {
+        const cliente = clientesPorId.get(emprestimo.clienteId);
+        if (!cliente) return;
+
+        const registro = acumulado.get(cliente.id) ?? {
+          clienteId: cliente.id,
+          nome: cliente.nome,
+          quantidade: 0,
+          total: 0,
+          maisAntigo: emprestimo.vencimento,
+          diasEmAtraso: 0,
+        };
+
+        registro.quantidade += 1;
+        registro.total += getValorAtualizadoEmprestimo(emprestimo, hoje);
+        if (emprestimo.vencimento < registro.maisAntigo) {
+          registro.maisAntigo = emprestimo.vencimento;
+        }
+
+        registro.diasEmAtraso = getDiasEmAtraso(registro.maisAntigo, hoje);
+
+        acumulado.set(cliente.id, registro);
+      });
+
+    return [...acumulado.values()].sort((a, b) => b.total - a.total);
+  }, [clientesPorId, emprestimos, hoje]);
+
   const jurosPorCliente = useMemo<JurosPorCliente[]>(() => {
     const acumulado = new Map<string, JurosPorCliente>();
 
@@ -219,9 +326,12 @@ function Resumo() {
         if (!cliente) return;
 
         const taxa = Number(cliente.juros) || 0;
+        const valorAtualizado = getValorAtualizadoEmprestimo(emprestimo, hoje);
         const principalEstimado =
           taxa > 0 ? emprestimo.valor / (1 + taxa / 100) : emprestimo.valor;
-        const jurosEstimados = Math.max(emprestimo.valor - principalEstimado, 0);
+        const jurosEstimados =
+          Math.max(emprestimo.valor - principalEstimado, 0) +
+          getJurosAtrasoEmprestimo(emprestimo, hoje);
         const registro = acumulado.get(cliente.id) ?? {
           clienteId: cliente.id,
           nome: cliente.nome,
@@ -232,7 +342,7 @@ function Resumo() {
         };
 
         registro.quantidade += 1;
-        registro.total += emprestimo.valor;
+        registro.total += valorAtualizado;
         registro.principalEstimado += principalEstimado;
         registro.jurosEstimados += jurosEstimados;
         acumulado.set(cliente.id, registro);
@@ -241,7 +351,7 @@ function Resumo() {
     return [...acumulado.values()].sort(
       (a, b) => b.jurosEstimados - a.jurosEstimados,
     );
-  }, [clientesPorId, emprestimos]);
+  }, [clientesPorId, emprestimos, hoje]);
 
   const totalJurosEstimados = useMemo(
     () => jurosPorCliente.reduce((acc, item) => acc + item.jurosEstimados, 0),
@@ -332,13 +442,16 @@ function Resumo() {
       return vencimento < hoje;
     });
 
-    const total = emprestimos.reduce((acc, emprestimo) => acc + emprestimo.valor, 0);
+    const total = emprestimos.reduce(
+      (acc, emprestimo) => acc + getValorAtualizadoEmprestimo(emprestimo, hoje),
+      0,
+    );
     const totalAReceber = emAberto.reduce(
-      (acc, emprestimo) => acc + emprestimo.valor,
+      (acc, emprestimo) => acc + getValorAtualizadoEmprestimo(emprestimo, hoje),
       0,
     );
     const totalVencidos = vencidos.reduce(
-      (acc, emprestimo) => acc + emprestimo.valor,
+      (acc, emprestimo) => acc + getValorAtualizadoEmprestimo(emprestimo, hoje),
       0,
     );
 
@@ -360,6 +473,7 @@ function Resumo() {
         cor: colors.success,
         fundo: colors.successLight,
         icone: <MonetizationOnTwoToneIcon />,
+        acao: "receber",
       },
       {
         titulo: "Total de vencidos",
@@ -369,6 +483,7 @@ function Resumo() {
         cor: colors.error,
         fundo: colors.errorLight,
         icone: <ReportProblemTwoToneIcon />,
+        acao: "vencidos",
       },
       {
         titulo: "Juros estimados",
@@ -436,7 +551,11 @@ function Resumo() {
                 onClick={
                   item.acao === "juros"
                     ? () => setModalJurosAberto(true)
-                    : undefined
+                    : item.acao === "receber"
+                      ? () => setModalReceberAberto(true)
+                      : item.acao === "vencidos"
+                        ? () => setModalVencidosAberto(true)
+                      : undefined
                 }
               />
             </Grid>
@@ -469,6 +588,15 @@ function Resumo() {
                 width: { xs: "100%", sm: "auto" },
               }}
             >
+              <Button
+                variant="outlined"
+                startIcon={<SyncTwoToneIcon />}
+                disabled={syncStatus === "carregando" || syncStatus === "salvando"}
+                onClick={() => void forceSync()}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
+              >
+                Sincronizar
+              </Button>
               <Button
                 variant="outlined"
                 startIcon={<FileDownloadTwoToneIcon />}
@@ -551,6 +679,143 @@ function Resumo() {
               }}
             >
               Confirmar
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={modalReceberAberto}
+          onClose={() => setModalReceberAberto(false)}
+          fullWidth
+          maxWidth="md"
+          slotProps={{
+            paper: {
+              sx: { borderRadius: 2, mx: 1.5 },
+            },
+          }}
+        >
+          <DialogTitle>Valores a receber por cliente</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Clientes com emprestimos em aberto, ordenados pelo maior valor a
+              receber. Esta visao ajuda a priorizar cobrancas sem sair do resumo.
+            </Typography>
+
+            <TableContainer component={Paper} sx={{ boxShadow: "none" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Cliente</TableCell>
+                    <TableCell align="right">Ativos</TableCell>
+                    <TableCell align="right">Total a receber</TableCell>
+                    <TableCell align="right">Vencidos</TableCell>
+                    <TableCell align="right">Valor vencido</TableCell>
+                    <TableCell align="right">Juros atraso</TableCell>
+                    <TableCell>Proximo vencimento</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {receberPorCliente.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7}>
+                        <Typography variant="body2" color="text.secondary">
+                          Nenhum cliente com valor em aberto no momento.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    receberPorCliente.map((item) => (
+                      <TableRow key={item.clienteId} hover>
+                        <TableCell>{item.nome}</TableCell>
+                        <TableCell align="right">{item.quantidade}</TableCell>
+                        <TableCell align="right" sx={{ color: colors.success, fontWeight: 700 }}>
+                          {valorVisivel(item.total)}
+                        </TableCell>
+                        <TableCell align="right">{item.vencidos}</TableCell>
+                        <TableCell align="right" sx={{ color: item.vencidos ? colors.error : "text.secondary" }}>
+                          {valorVisivel(item.totalVencido)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ color: item.jurosAtraso ? colors.warning : "text.secondary" }}>
+                          {valorVisivel(item.jurosAtraso)}
+                        </TableCell>
+                        <TableCell>{new Date(`${item.proximoVencimento}T00:00:00`).toLocaleDateString("pt-BR")}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button variant="contained" onClick={() => setModalReceberAberto(false)}>
+              Fechar
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={modalVencidosAberto}
+          onClose={() => setModalVencidosAberto(false)}
+          fullWidth
+          maxWidth="md"
+          slotProps={{
+            paper: {
+              sx: { borderRadius: 2, mx: 1.5 },
+            },
+          }}
+        >
+          <DialogTitle>Valores vencidos por cliente</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Clientes com emprestimos atrasados, ordenados pelo maior valor vencido.
+              Use esta lista para priorizar cobrancas urgentes.
+            </Typography>
+
+            <TableContainer component={Paper} sx={{ boxShadow: "none" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Cliente</TableCell>
+                    <TableCell align="right">Vencidos</TableCell>
+                    <TableCell align="right">Total vencido</TableCell>
+                    <TableCell>Mais antigo</TableCell>
+                    <TableCell align="right">Dias em atraso</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {vencidosPorCliente.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5}>
+                        <Typography variant="body2" color="text.secondary">
+                          Nenhum cliente com valor vencido no momento.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    vencidosPorCliente.map((item) => (
+                      <TableRow key={item.clienteId} hover>
+                        <TableCell>{item.nome}</TableCell>
+                        <TableCell align="right">{item.quantidade}</TableCell>
+                        <TableCell align="right" sx={{ color: colors.error, fontWeight: 700 }}>
+                          {valorVisivel(item.total)}
+                        </TableCell>
+                        <TableCell>{new Date(`${item.maisAntigo}T00:00:00`).toLocaleDateString("pt-BR")}</TableCell>
+                        <TableCell align="right">
+                          {item.diasEmAtraso}
+                          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                            8% ao dia
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button variant="contained" color="error" onClick={() => setModalVencidosAberto(false)}>
+              Fechar
             </Button>
           </DialogActions>
         </Dialog>

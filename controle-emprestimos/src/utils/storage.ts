@@ -124,6 +124,17 @@ export function saveAppData(data: Partial<AppData>) {
 export async function importBackup(file: File) {
   const content = await file.text();
   const data = JSON.parse(content) as Record<string, unknown>;
+  const requiredKeys = [
+    "clientes",
+    "emprestimos",
+    "clientes_arquivados",
+    "emprestimos_arquivados",
+  ];
+
+  const hasInvalidKey = requiredKeys.some((key) => !Array.isArray(data[key]));
+  if (hasInvalidKey) {
+    throw new Error("Backup invalido");
+  }
 
   saveAppData({
     clientes: data.clientes as unknown[],

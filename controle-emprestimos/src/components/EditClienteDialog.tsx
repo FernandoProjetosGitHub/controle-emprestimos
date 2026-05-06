@@ -10,7 +10,7 @@ import {
 import EditTwoToneIcon from "@mui/icons-material/EditTwoTone";
 import type { Cliente } from "../types/cliente";
 import { colors } from "../theme";
-import { formatTelefone } from "../utils/format";
+import { enderecoInvalido, formatTelefone, telefoneInvalido } from "../utils/format";
 
 type Props = {
   open: boolean;
@@ -29,8 +29,24 @@ export default function EditClienteDialog({
 }: Props) {
   if (!cliente) return null;
 
-  const nomeInvalido = !cliente.nome.trim();
-  const jurosInvalido = Number.isNaN(cliente.juros) || cliente.juros < 0;
+  const telefone = cliente.telefone ?? "";
+  const endereco = cliente.endereco ?? "";
+  const nomeErro = !cliente.nome.trim() ? "Informe o nome do cliente" : "";
+  const jurosErro =
+    Number.isNaN(cliente.juros) || cliente.juros < 0
+      ? "Informe uma taxa valida"
+      : "";
+  const telefoneErro = !telefone
+    ? "Informe o telefone do cliente"
+    : telefoneInvalido(telefone)
+      ? "Informe um telefone com DDD e 11 digitos"
+      : "";
+  const enderecoErro = !endereco.trim()
+    ? "Informe o endereco do cliente"
+    : enderecoInvalido(endereco)
+      ? "Use um endereco entre 3 e 255 caracteres"
+      : "";
+  const formInvalido = !!(nomeErro || jurosErro || telefoneErro || enderecoErro);
 
   return (
     <Dialog
@@ -56,8 +72,8 @@ export default function EditClienteDialog({
             fullWidth
             value={cliente.nome}
             onChange={(e) => onChange({ ...cliente, nome: e.target.value })}
-            error={nomeInvalido}
-            helperText={nomeInvalido ? "Informe o nome do cliente" : ""}
+            error={!!nomeErro}
+            helperText={nomeErro}
           />
 
           <TextField
@@ -68,8 +84,8 @@ export default function EditClienteDialog({
             onChange={(e) =>
               onChange({ ...cliente, juros: Number(e.target.value) })
             }
-            error={jurosInvalido}
-            helperText={jurosInvalido ? "Informe uma taxa válida" : ""}
+            error={!!jurosErro}
+            helperText={jurosErro}
             slotProps={{
               htmlInput: {
                 min: 0,
@@ -81,17 +97,21 @@ export default function EditClienteDialog({
           <TextField
             label="Telefone"
             fullWidth
-            value={cliente.telefone ?? ""}
+            value={telefone}
             onChange={(e) =>
               onChange({ ...cliente, telefone: formatTelefone(e.target.value) })
             }
+            error={!!telefoneErro}
+            helperText={telefoneErro}
           />
 
           <TextField
-            label="Endereço"
+            label="Endereco"
             fullWidth
-            value={cliente.endereco ?? ""}
+            value={endereco}
             onChange={(e) => onChange({ ...cliente, endereco: e.target.value })}
+            error={!!enderecoErro}
+            helperText={enderecoErro}
           />
         </Box>
       </DialogContent>
@@ -101,7 +121,7 @@ export default function EditClienteDialog({
         <Button
           variant="contained"
           onClick={onSave}
-          disabled={nomeInvalido || jurosInvalido}
+          disabled={formInvalido}
         >
           Salvar
         </Button>

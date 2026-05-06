@@ -1,4 +1,7 @@
 import {
+  useEffect,
+} from "react";
+import {
   BottomNavigation,
   BottomNavigationAction,
   Box,
@@ -19,7 +22,6 @@ import AccountBalanceWalletTwoToneIcon from "@mui/icons-material/AccountBalanceW
 import CloudDoneTwoToneIcon from "@mui/icons-material/CloudDoneTwoTone";
 import CloudOffTwoToneIcon from "@mui/icons-material/CloudOffTwoTone";
 import LogoutTwoToneIcon from "@mui/icons-material/LogoutTwoTone";
-import SyncTwoToneIcon from "@mui/icons-material/SyncTwoTone";
 import { HashRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import Acesso from "./pages/Acesso";
 import Clientes from "./pages/Clientes";
@@ -30,7 +32,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 const menuItems = [
   { label: "Resumo", path: "/resumo", icon: <DashboardTwoToneIcon /> },
-  { label: "Clientes", path: "/", icon: <GroupTwoToneIcon /> },
+  { label: "Clientes", path: "/clientes", icon: <GroupTwoToneIcon /> },
   {
     label: "Empréstimos",
     path: "/emprestimos",
@@ -46,13 +48,21 @@ const statusText = {
   erro: "Erro de sync",
 };
 
+const brandLogo = `${import.meta.env.BASE_URL}brand-jurista.png`;
+
 function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading, syncStatus, logout, forceSync } = useAuth();
+  const { user, loading, syncStatus, logout } = useAuth();
   const currentPath = menuItems.some((item) => item.path === location.pathname)
     ? location.pathname
-    : "/";
+    : "/resumo";
+
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 599px)").matches) {
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    }
+  }, [location.pathname]);
 
   if (loading) {
     return (
@@ -87,17 +97,28 @@ function Layout() {
           boxShadow: "4px 0 18px rgba(15, 23, 42, 0.16)",
         }}
       >
-        <Typography
-          variant="h6"
+        <Box
           sx={{
             px: 1,
             mb: 3,
-            fontWeight: 700,
-            lineHeight: 1.2,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.25,
           }}
         >
-          Controle de Empréstimos
-        </Typography>
+          <Box
+            component="img"
+            src={brandLogo}
+            alt="Jurista"
+            sx={{
+              width: 46,
+              height: 46,
+              borderRadius: "50%",
+              flexShrink: 0,
+              boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
+            }}
+          />
+        </Box>
 
         <List sx={{ display: "grid", gap: 1, flex: 1 }}>
           {menuItems.map((item) => {
@@ -181,14 +202,6 @@ function Layout() {
             {user.email}
           </Typography>
           <Button
-            variant="outlined"
-            startIcon={<SyncTwoToneIcon />}
-            onClick={() => void forceSync()}
-            sx={{ color: "white", borderColor: "rgba(255,255,255,0.32)" }}
-          >
-            Sincronizar
-          </Button>
-          <Button
             variant="contained"
             color="error"
             startIcon={<LogoutTwoToneIcon />}
@@ -244,7 +257,8 @@ function Layout() {
           </Button>
         </Box>
         <Routes>
-          <Route path="/" element={<Clientes />} />
+          <Route path="/" element={<Resumo />} />
+          <Route path="/clientes" element={<Clientes />} />
           <Route path="/emprestimos" element={<Emprestimos />} />
           <Route path="/resumo" element={<Resumo />} />
         </Routes>

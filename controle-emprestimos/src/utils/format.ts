@@ -13,10 +13,19 @@ export function formatTelefone(value: string) {
 }
 
 export function telefoneInvalido(value: string) {
-  const numeros = value.replace(/\D/g, "");
+  const numeros = normalizarTelefone(value);
   return numeros.length > 0 && numeros.length !== 11;
 }
 
 export function enderecoInvalido(value: string) {
-  return value.length > 0 && (value.length < 3 || value.length > 255);
+  const endereco = value.trim();
+  return endereco.length > 0 && (endereco.length < 3 || endereco.length > 255);
+}
+
+export function normalizarTelefone(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+export function normalizarTexto(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
 }

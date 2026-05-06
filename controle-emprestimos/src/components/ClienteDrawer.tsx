@@ -10,7 +10,7 @@ type Props = {
     juros: number;
     telefone: string;
     endereco: string;
-  }) => void;
+  }) => boolean;
 };
 
 export default function ClienteDrawer({ open, onClose, onSave }: Props) {
@@ -18,6 +18,25 @@ export default function ClienteDrawer({ open, onClose, onSave }: Props) {
   const [juros, setJuros] = useState("");
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
+
+  const nomeLimpo = nome.trim();
+  const enderecoLimpo = endereco.trim();
+  const nomeErro = !nomeLimpo ? "Informe o nome do cliente" : "";
+  const jurosErro =
+    !juros || Number.isNaN(Number(juros)) || Number(juros) < 0
+      ? "Informe uma taxa de juros valida"
+      : "";
+  const telefoneErro = !telefone
+    ? "Informe o telefone do cliente"
+    : telefoneInvalido(telefone)
+      ? "Informe um telefone com DDD e 11 digitos"
+      : "";
+  const enderecoErro = !enderecoLimpo
+    ? "Informe o endereco do cliente"
+    : enderecoInvalido(endereco)
+      ? "Use um endereco entre 3 e 255 caracteres"
+      : "";
+  const isInvalid = !!(nomeErro || jurosErro || telefoneErro || enderecoErro);
 
   function resetForm() {
     setNome("");
@@ -34,23 +53,18 @@ export default function ClienteDrawer({ open, onClose, onSave }: Props) {
   function handleSave() {
     if (isInvalid) return;
 
-    onSave({
-      nome: nome.trim(),
+    const saved = onSave({
+      nome: nomeLimpo,
       juros: Number(juros),
       telefone,
-      endereco: endereco.trim(),
+      endereco: enderecoLimpo,
     });
+
+    if (!saved) return;
 
     resetForm();
     onClose();
   }
-
-  const isInvalid =
-    !nome.trim() ||
-    !juros ||
-    Number(juros) < 0 ||
-    telefoneInvalido(telefone) ||
-    enderecoInvalido(endereco);
 
   return (
     <Drawer anchor="right" open={open} onClose={handleClose}>
@@ -72,7 +86,8 @@ export default function ClienteDrawer({ open, onClose, onSave }: Props) {
           autoFocus
           value={nome}
           onChange={(e) => setNome(e.target.value)}
-          error={nome.length > 0 && !nome.trim()}
+          error={!!nomeErro}
+          helperText={nomeErro}
         />
 
         <TextField
@@ -80,6 +95,8 @@ export default function ClienteDrawer({ open, onClose, onSave }: Props) {
           type="number"
           value={juros}
           onChange={(e) => setJuros(e.target.value)}
+          error={!!jurosErro}
+          helperText={jurosErro}
           slotProps={{
             htmlInput: {
               min: 0,
@@ -92,20 +109,16 @@ export default function ClienteDrawer({ open, onClose, onSave }: Props) {
           label="Telefone"
           value={telefone}
           onChange={(e) => setTelefone(formatTelefone(e.target.value))}
-          error={telefoneInvalido(telefone)}
-          helperText={telefoneInvalido(telefone) ? "Telefone incorreto" : ""}
+          error={!!telefoneErro}
+          helperText={telefoneErro}
         />
 
         <TextField
-          label="Endereço"
+          label="Endereco"
           value={endereco}
           onChange={(e) => setEndereco(e.target.value)}
-          error={enderecoInvalido(endereco)}
-          helperText={
-            enderecoInvalido(endereco)
-              ? "Endereço inválido: use entre 3 e 255 caracteres"
-              : ""
-          }
+          error={!!enderecoErro}
+          helperText={enderecoErro}
         />
 
         <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
