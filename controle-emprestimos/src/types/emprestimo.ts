@@ -7,6 +7,8 @@ export type Emprestimo = {
   valor: number;
   dataEmprestimo: string;
   vencimento: string;
+  parcelaAtual?: number;
+  parcelasTotal?: number;
   pago: boolean;
   travado: boolean;
 };

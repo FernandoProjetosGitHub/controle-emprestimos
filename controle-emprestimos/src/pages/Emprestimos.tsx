@@ -74,6 +74,8 @@ const filtros = [
   { label: "Em andamento", value: "emDia" },
 ] satisfies { label: string; value: FiltroStatus }[];
 
+const opcoesParcelas = Array.from({ length: 12 }, (_, index) => index + 1);
+
 function getDataHojeInput() {
   return new Date().toISOString().split("T")[0];
 }
@@ -84,6 +86,14 @@ function normalizarDataInput(value: string) {
 
 function formatarData(value: string) {
   return new Date(`${normalizarDataInput(value)}T00:00:00`).toLocaleDateString("pt-BR");
+}
+
+function adicionarMeses(data: string, meses: number) {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  const destino = new Date(ano, mes - 1 + meses, 1);
+  const ultimoDia = new Date(destino.getFullYear(), destino.getMonth() + 1, 0).getDate();
+  destino.setDate(Math.min(dia, ultimoDia));
+  return destino.toISOString().split("T")[0];
 }
 
 function getHoje() {
@@ -113,6 +123,7 @@ function Emprestimos() {
   const [valor, setValor] = useState("");
   const [dataEmprestimo, setDataEmprestimo] = useState(getDataHojeInput);
   const [vencimento, setVencimento] = useState("");
+  const [parcelas, setParcelas] = useState(1);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
   const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
   const [idParaPagar, setIdParaPagar] = useState<string | null>(null);
@@ -128,6 +139,9 @@ function Emprestimos() {
   const pagamentoDialogColor = emprestimoSelecionado?.pago
     ? colors.warning
     : colors.success;
+  const vencimentoFinalPrevisto = vencimento
+    ? adicionarMeses(vencimento, parcelas - 1)
+    : "";
 
   useEffect(() => {
     saveList("emprestimos", lista);
@@ -180,7 +194,7 @@ function Emprestimos() {
     }
 
     if (!vencimento) {
-      return notificar("Informe a data de vencimento.", "aviso");
+      return notificar("Informe a data do primeiro vencimento.", "aviso");
     }
 
     const cliente = clientes.find((item) => item.id === clienteSelecionado);
@@ -188,22 +202,31 @@ function Emprestimos() {
     const base = Number(valor) / 100;
     const final = base + (base * juros) / 100;
 
-    const novo: Emprestimo = {
+    const valorParcela = final / parcelas;
+    const novos: Emprestimo[] = Array.from({ length: parcelas }, (_, index) => ({
       id: crypto.randomUUID(),
       clienteId: clienteSelecionado,
-      valor: final,
+      valor: valorParcela,
       dataEmprestimo,
-      vencimento,
+      vencimento: adicionarMeses(vencimento, index),
+      parcelaAtual: index + 1,
+      parcelasTotal: parcelas,
       pago: false,
       travado: true,
-    };
+    }));
 
-    setLista((prev) => [...prev, novo]);
+    setLista((prev) => [...prev, ...novos]);
     setValor("");
     setDataEmprestimo(getDataHojeInput());
     setVencimento("");
+    setParcelas(1);
     setClienteSelecionado("");
-    notificar("Empréstimo registrado com sucesso!", "sucesso");
+    notificar(
+      parcelas > 1
+        ? `Empréstimo parcelado em ${parcelas}x registrado com sucesso!`
+        : "Empréstimo registrado com sucesso!",
+      "sucesso",
+    );
   }
 
   function confirmarPagamento() {
@@ -301,7 +324,7 @@ function Emprestimos() {
             />
 
             <TextField
-              label="Vencimento"
+              label="Primeiro vencimento"
               type="date"
               value={vencimento}
               onChange={(e) => setVencimento(e.target.value)}
@@ -310,6 +333,42 @@ function Emprestimos() {
               }}
               sx={{ width: { xs: "100%", sm: "auto" } }}
             />
+
+            <FormControl sx={{ minWidth: { xs: "100%", sm: 150 } }}>
+              <InputLabel>Parcelas</InputLabel>
+              <Select
+                value={parcelas}
+                label="Parcelas"
+                onChange={(e) => setParcelas(Number(e.target.value))}
+              >
+                {opcoesParcelas.map((quantidade) => (
+                  <MenuItem key={quantidade} value={quantidade}>
+                    {quantidade}x mensal
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {vencimentoFinalPrevisto && (
+              <Box
+                sx={{
+                  alignSelf: "center",
+                  px: 1.5,
+                  py: 1,
+                  borderRadius: 1,
+                  bgcolor: colors.petroleumLight,
+                  color: colors.petroleum,
+                  width: { xs: "100%", sm: "auto" },
+                }}
+              >
+                <Typography variant="caption" sx={{ display: "block", color: colors.muted }}>
+                  Vencimento final
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  {formatarData(vencimentoFinalPrevisto)}
+                </Typography>
+              </Box>
+            )}
 
             <Button
               variant="contained"
@@ -373,11 +432,12 @@ function Emprestimos() {
         </Box>
 
         <TableContainer component={Paper} sx={{ bgcolor: "#fff", overflowX: "auto" }}>
-          <Table sx={{ bgcolor: "#fff", minWidth: 920 }}>
+          <Table sx={{ bgcolor: "#fff", minWidth: 1020 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Cliente</TableCell>
                 <TableCell>Valor</TableCell>
+                <TableCell>Parcela</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Data do emprestimo</TableCell>
                 <TableCell>Vencimento</TableCell>
@@ -389,7 +449,7 @@ function Emprestimos() {
             <TableBody>
               {listaFiltrada.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7}>
+                  <TableCell colSpan={8}>
                     <TabelaVazia
                       icone={<MoneyOffTwoToneIcon sx={{ fontSize: 64 }} />}
                       mensagem={
@@ -434,6 +494,11 @@ function Emprestimos() {
                             Base {moeda.format(emprestimo.valor)} + 8% ao dia
                           </Typography>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        {emprestimo.parcelasTotal && emprestimo.parcelasTotal > 1
+                          ? `${emprestimo.parcelaAtual}/${emprestimo.parcelasTotal}`
+                          : "A vista"}
                       </TableCell>
                       <TableCell>
                         <Chip
