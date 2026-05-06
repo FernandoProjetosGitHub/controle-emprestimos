@@ -9,8 +9,15 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
   LinearProgress,
   Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
@@ -21,6 +28,9 @@ import FileDownloadTwoToneIcon from "@mui/icons-material/FileDownloadTwoTone";
 import UploadFileTwoToneIcon from "@mui/icons-material/UploadFileTwoTone";
 import RestoreTwoToneIcon from "@mui/icons-material/RestoreTwoTone";
 import LockTwoToneIcon from "@mui/icons-material/LockTwoTone";
+import VisibilityTwoToneIcon from "@mui/icons-material/VisibilityTwoTone";
+import VisibilityOffTwoToneIcon from "@mui/icons-material/VisibilityOffTwoTone";
+import PriceCheckTwoToneIcon from "@mui/icons-material/PriceCheckTwoTone";
 import Notificacao from "../components/Notificacao";
 import type { Cliente } from "../types/cliente";
 import type { Emprestimo } from "../types/emprestimo";
@@ -35,14 +45,25 @@ import {
 
 type ResumoGrafico = {
   titulo: string;
+  descricao: string;
   valor: number;
   quantidade: number;
   cor: string;
   fundo: string;
   icone: ReactNode;
+  acao?: "juros";
 };
 
 type AcaoSegura = "exportar" | "importar" | "restaurar";
+
+type JurosPorCliente = {
+  clienteId: string;
+  nome: string;
+  quantidade: number;
+  total: number;
+  principalEstimado: number;
+  jurosEstimados: number;
+};
 
 const senhaSeguranca = "1234";
 
@@ -54,14 +75,29 @@ const moeda = new Intl.NumberFormat("pt-BR", {
 function GraficoResumo({
   item,
   maiorValor,
+  mostrarValores,
+  onClick,
 }: {
   item: ResumoGrafico;
   maiorValor: number;
+  mostrarValores: boolean;
+  onClick?: () => void;
 }) {
   const percentual = maiorValor > 0 ? Math.round((item.valor / maiorValor) * 100) : 0;
+  const clicavel = !!onClick;
 
   return (
     <Paper
+      role={clicavel ? "button" : undefined}
+      tabIndex={clicavel ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (!clicavel) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
       sx={{
         p: 3,
         borderRadius: 2,
@@ -69,6 +105,14 @@ function GraficoResumo({
         display: "flex",
         flexDirection: "column",
         gap: 2,
+        cursor: clicavel ? "pointer" : "default",
+        transition: "border-color 160ms ease, transform 160ms ease",
+        "&:hover": clicavel
+          ? {
+              borderColor: item.cor,
+              transform: "translateY(-2px)",
+            }
+          : undefined,
       }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -90,10 +134,14 @@ function GraficoResumo({
             {item.titulo}
           </Typography>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            {moeda.format(item.valor)}
+            {mostrarValores ? moeda.format(item.valor) : "R$ ******"}
           </Typography>
         </Box>
       </Box>
+
+      <Typography variant="body2" color="text.secondary" sx={{ minHeight: 42 }}>
+        {item.descricao}
+      </Typography>
 
       <Box>
         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.75 }}>
@@ -120,7 +168,7 @@ function GraficoResumo({
       </Box>
 
       <Typography variant="body2" color="text.secondary">
-        {item.quantidade} empréstimo{item.quantidade === 1 ? "" : "s"}
+        {item.quantidade} emprestimo{item.quantidade === 1 ? "" : "s"}
       </Typography>
     </Paper>
   );
@@ -147,12 +195,62 @@ function Resumo() {
   }>({ mensagem: "", tipo: "sucesso", aberto: false });
   const [acaoSegura, setAcaoSegura] = useState<AcaoSegura | null>(null);
   const [senha, setSenha] = useState("");
+  const [mostrarValores, setMostrarValores] = useState(true);
+  const [modalJurosAberto, setModalJurosAberto] = useState(false);
 
   const hoje = useMemo(() => {
     const data = new Date();
     data.setHours(0, 0, 0, 0);
     return data;
   }, []);
+
+  const clientesPorId = useMemo(
+    () => new Map(clientes.map((cliente) => [cliente.id, cliente])),
+    [clientes],
+  );
+
+  const jurosPorCliente = useMemo<JurosPorCliente[]>(() => {
+    const acumulado = new Map<string, JurosPorCliente>();
+
+    emprestimos
+      .filter((emprestimo) => !emprestimo.pago)
+      .forEach((emprestimo) => {
+        const cliente = clientesPorId.get(emprestimo.clienteId);
+        if (!cliente) return;
+
+        const taxa = Number(cliente.juros) || 0;
+        const principalEstimado =
+          taxa > 0 ? emprestimo.valor / (1 + taxa / 100) : emprestimo.valor;
+        const jurosEstimados = Math.max(emprestimo.valor - principalEstimado, 0);
+        const registro = acumulado.get(cliente.id) ?? {
+          clienteId: cliente.id,
+          nome: cliente.nome,
+          quantidade: 0,
+          total: 0,
+          principalEstimado: 0,
+          jurosEstimados: 0,
+        };
+
+        registro.quantidade += 1;
+        registro.total += emprestimo.valor;
+        registro.principalEstimado += principalEstimado;
+        registro.jurosEstimados += jurosEstimados;
+        acumulado.set(cliente.id, registro);
+      });
+
+    return [...acumulado.values()].sort(
+      (a, b) => b.jurosEstimados - a.jurosEstimados,
+    );
+  }, [clientesPorId, emprestimos]);
+
+  const totalJurosEstimados = useMemo(
+    () => jurosPorCliente.reduce((acc, item) => acc + item.jurosEstimados, 0),
+    [jurosPorCliente],
+  );
+
+  function valorVisivel(valor: number) {
+    return mostrarValores ? moeda.format(valor) : "R$ ******";
+  }
 
   function notificar(mensagem: string, tipo: "erro" | "aviso" | "sucesso") {
     setNotificacao({ mensagem, tipo, aberto: true });
@@ -165,7 +263,7 @@ function Resumo() {
 
   function confirmarAcaoSegura() {
     if (senha !== senhaSeguranca) {
-      notificar("Senha de segurança incorreta.", "erro");
+      notificar("Senha de seguranca incorreta.", "erro");
       return;
     }
 
@@ -186,7 +284,7 @@ function Resumo() {
   }
 
   const mensagemAcaoSegura = {
-    exportar: "Exportar uma cópia dos dados locais para um arquivo JSON.",
+    exportar: "Exportar uma copia dos dados locais para um arquivo JSON.",
     importar: "Importar um backup JSON e substituir os dados locais atuais.",
     restaurar: "Restaurar registros arquivados para as listas principais.",
   } satisfies Record<AcaoSegura, string>;
@@ -207,7 +305,7 @@ function Resumo() {
       recarregarDados();
       notificar("Backup importado com sucesso.", "sucesso");
     } catch {
-      notificar("Não foi possível importar este arquivo.", "erro");
+      notificar("Nao foi possivel importar este arquivo.", "erro");
     } finally {
       event.target.value = "";
     }
@@ -220,7 +318,7 @@ function Resumo() {
     recarregarDados();
 
     if (clientesRestaurados + emprestimosRestaurados === 0) {
-      notificar("Não há registros arquivados para restaurar.", "aviso");
+      notificar("Nao ha registros arquivados para restaurar.", "aviso");
       return;
     }
 
@@ -247,6 +345,7 @@ function Resumo() {
     return [
       {
         titulo: "Total de valores",
+        descricao: "Soma de todos os emprestimos cadastrados, pagos ou em aberto.",
         valor: total,
         quantidade: emprestimos.length,
         cor: colors.petroleum,
@@ -255,6 +354,7 @@ function Resumo() {
       },
       {
         titulo: "Total de valores a receber",
+        descricao: "Quanto ainda esta em aberto para recebimento dos clientes.",
         valor: totalAReceber,
         quantidade: emAberto.length,
         cor: colors.success,
@@ -263,14 +363,25 @@ function Resumo() {
       },
       {
         titulo: "Total de vencidos",
+        descricao: "Parte em aberto com data de vencimento anterior a hoje.",
         valor: totalVencidos,
         quantidade: vencidos.length,
         cor: colors.error,
         fundo: colors.errorLight,
         icone: <ReportProblemTwoToneIcon />,
       },
+      {
+        titulo: "Juros estimados",
+        descricao: "Estimativa dos juros embutidos nos emprestimos ativos.",
+        valor: totalJurosEstimados,
+        quantidade: emAberto.length,
+        cor: colors.warning,
+        fundo: colors.warningLight,
+        icone: <PriceCheckTwoToneIcon />,
+        acao: "juros",
+      },
     ];
-  }, [emprestimos, hoje]);
+  }, [emprestimos, hoje, totalJurosEstimados]);
 
   const maiorValor = Math.max(...graficos.map((grafico) => grafico.valor), 0);
 
@@ -286,16 +397,48 @@ function Resumo() {
             border: `1px solid ${colors.border}`,
           }}
         >
-          <Typography variant="h6">Resumo</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Visão geral dos valores registrados nos empréstimos.
-          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: 2,
+            }}
+          >
+            <Box>
+              <Typography variant="h6">Resumo</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Visao financeira dos emprestimos cadastrados, separando total,
+                valores em aberto, atrasos e juros estimados.
+              </Typography>
+            </Box>
+            <IconButton
+              aria-label={mostrarValores ? "Esconder valores" : "Mostrar valores"}
+              onClick={() => setMostrarValores((value) => !value)}
+              sx={{
+                bgcolor: colors.petroleumLight,
+                color: colors.petroleum,
+                "&:hover": { bgcolor: colors.petroleumLight },
+              }}
+            >
+              {mostrarValores ? <VisibilityOffTwoToneIcon /> : <VisibilityTwoToneIcon />}
+            </IconButton>
+          </Box>
         </Box>
 
         <Grid container spacing={3}>
           {graficos.map((item) => (
-            <Grid key={item.titulo} size={{ xs: 12, md: 4 }}>
-              <GraficoResumo item={item} maiorValor={maiorValor} />
+            <Grid key={item.titulo} size={{ xs: 12, sm: 6, lg: 3 }}>
+              <GraficoResumo
+                item={item}
+                maiorValor={maiorValor}
+                mostrarValores={mostrarValores}
+                onClick={
+                  item.acao === "juros"
+                    ? () => setModalJurosAberto(true)
+                    : undefined
+                }
+              />
             </Grid>
           ))}
         </Grid>
@@ -313,7 +456,7 @@ function Resumo() {
             <Box>
               <Typography variant="h6">Dados locais</Typography>
               <Typography variant="body2" color="text.secondary">
-                {clientes.length} clientes, {emprestimos.length} empréstimos e{" "}
+                {clientes.length} clientes, {emprestimos.length} emprestimos e{" "}
                 {clientesArquivados.length + emprestimosArquivados.length} arquivados.
               </Typography>
             </Box>
@@ -375,7 +518,7 @@ function Resumo() {
         >
           <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <LockTwoToneIcon sx={{ color: colors.warning }} />
-            Confirmar ação
+            Confirmar acao
           </DialogTitle>
           <DialogContent>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -384,7 +527,7 @@ function Resumo() {
             <TextField
               autoFocus
               fullWidth
-              label="Senha de segurança"
+              label="Senha de seguranca"
               type="password"
               value={senha}
               onChange={(event) => setSenha(event.target.value)}
@@ -408,6 +551,70 @@ function Resumo() {
               }}
             >
               Confirmar
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={modalJurosAberto}
+          onClose={() => setModalJurosAberto(false)}
+          fullWidth
+          maxWidth="md"
+          slotProps={{
+            paper: {
+              sx: { borderRadius: 2, mx: 1.5 },
+            },
+          }}
+        >
+          <DialogTitle>Juros por cliente ativo</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Estimativa calculada pelos juros cadastrados em cada cliente e pelos
+              emprestimos ainda nao pagos. Use como referencia operacional.
+            </Typography>
+
+            <TableContainer component={Paper} sx={{ boxShadow: "none" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Cliente</TableCell>
+                    <TableCell align="right">Ativos</TableCell>
+                    <TableCell align="right">Principal estimado</TableCell>
+                    <TableCell align="right">Juros estimados</TableCell>
+                    <TableCell align="right">Total a receber</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {jurosPorCliente.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5}>
+                        <Typography variant="body2" color="text.secondary">
+                          Nenhum cliente com emprestimo ativo no momento.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    jurosPorCliente.map((item) => (
+                      <TableRow key={item.clienteId} hover>
+                        <TableCell>{item.nome}</TableCell>
+                        <TableCell align="right">{item.quantidade}</TableCell>
+                        <TableCell align="right">
+                          {valorVisivel(item.principalEstimado)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ color: colors.warning, fontWeight: 700 }}>
+                          {valorVisivel(item.jurosEstimados)}
+                        </TableCell>
+                        <TableCell align="right">{valorVisivel(item.total)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button variant="contained" onClick={() => setModalJurosAberto(false)}>
+              Fechar
             </Button>
           </DialogActions>
         </Dialog>

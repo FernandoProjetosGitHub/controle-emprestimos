@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import {
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -36,6 +37,7 @@ type AuthContextValue = {
   loading: boolean;
   syncStatus: SyncStatus;
   login: (email: string, password: string) => Promise<void>;
+  createAccount: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   forceSync: () => Promise<void>;
 };
@@ -152,6 +154,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: async (email, password) => {
         setSyncStatus("carregando");
         await signInWithEmailAndPassword(auth, email, password);
+      },
+      createAccount: async (email, password) => {
+        setSyncStatus("carregando");
+        await createUserWithEmailAndPassword(auth, email, password);
       },
       logout: async () => {
         await signOut(auth);

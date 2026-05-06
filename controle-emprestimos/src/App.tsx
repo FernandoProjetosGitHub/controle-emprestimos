@@ -2,10 +2,13 @@ import {
   BottomNavigation,
   BottomNavigationAction,
   Box,
+  Button,
+  Chip,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  CircularProgress,
   Typography,
 } from "@mui/material";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -13,13 +16,17 @@ import { ThemeProvider } from "@mui/material/styles";
 import DashboardTwoToneIcon from "@mui/icons-material/DashboardTwoTone";
 import GroupTwoToneIcon from "@mui/icons-material/GroupTwoTone";
 import AccountBalanceWalletTwoToneIcon from "@mui/icons-material/AccountBalanceWalletTwoTone";
+import CloudDoneTwoToneIcon from "@mui/icons-material/CloudDoneTwoTone";
+import CloudOffTwoToneIcon from "@mui/icons-material/CloudOffTwoTone";
+import LogoutTwoToneIcon from "@mui/icons-material/LogoutTwoTone";
+import SyncTwoToneIcon from "@mui/icons-material/SyncTwoTone";
 import { HashRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import Acesso from "./pages/Acesso";
 import Clientes from "./pages/Clientes";
 import Emprestimos from "./pages/Emprestimos";
 import Resumo from "./pages/Resumo";
 import { appTheme, colors } from "./theme";
-import { AuthProvider } from "./contexts/AuthContext";
-import AuthBar from "./components/AuthBar";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 const menuItems = [
   { label: "Resumo", path: "/resumo", icon: <DashboardTwoToneIcon /> },
@@ -31,12 +38,38 @@ const menuItems = [
   },
 ];
 
+const statusText = {
+  local: "Modo local",
+  carregando: "Conectando",
+  sincronizado: "Sincronizado",
+  salvando: "Salvando",
+  erro: "Erro de sync",
+};
+
 function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, loading, syncStatus, logout, forceSync } = useAuth();
   const currentPath = menuItems.some((item) => item.path === location.pathname)
     ? location.pathname
     : "/";
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          bgcolor: "background.default",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!user) return <Acesso />;
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default" }}>
@@ -66,7 +99,7 @@ function Layout() {
           Controle de Empréstimos
         </Typography>
 
-        <List sx={{ display: "grid", gap: 1 }}>
+        <List sx={{ display: "grid", gap: 1, flex: 1 }}>
           {menuItems.map((item) => {
             const selected = location.pathname === item.path;
 
@@ -112,6 +145,58 @@ function Layout() {
             );
           })}
         </List>
+
+        <Box
+          sx={{
+            mt: 3,
+            pt: 2,
+            borderTop: "1px solid rgba(255,255,255,0.16)",
+            display: "grid",
+            gap: 1,
+          }}
+        >
+          <Chip
+            icon={
+              syncStatus === "sincronizado" ? (
+                <CloudDoneTwoToneIcon />
+              ) : (
+                <CloudOffTwoToneIcon />
+              )
+            }
+            label={statusText[syncStatus]}
+            sx={{
+              justifyContent: "flex-start",
+              bgcolor:
+                syncStatus === "sincronizado"
+                  ? colors.successLight
+                  : colors.warningLight,
+              color:
+                syncStatus === "sincronizado"
+                  ? colors.success
+                  : colors.warning,
+              fontWeight: 700,
+            }}
+          />
+          <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.72)" }} noWrap>
+            {user.email}
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<SyncTwoToneIcon />}
+            onClick={() => void forceSync()}
+            sx={{ color: "white", borderColor: "rgba(255,255,255,0.32)" }}
+          >
+            Sincronizar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<LogoutTwoToneIcon />}
+            onClick={() => void logout()}
+          >
+            Sair
+          </Button>
+        </Box>
       </Box>
 
       <Box
@@ -122,7 +207,42 @@ function Layout() {
           pb: { xs: 9, sm: 0 },
         }}
       >
-        <AuthBar />
+        <Box
+          sx={{
+            display: { xs: "flex", sm: "none" },
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1,
+            px: 1.5,
+            pt: 1.5,
+            bgcolor: "background.default",
+          }}
+        >
+          <Chip
+            label={statusText[syncStatus]}
+            size="small"
+            sx={{
+              bgcolor:
+                syncStatus === "sincronizado"
+                  ? colors.successLight
+                  : colors.warningLight,
+              color:
+                syncStatus === "sincronizado"
+                  ? colors.success
+                  : colors.warning,
+              fontWeight: 700,
+            }}
+          />
+          <Button
+            size="small"
+            variant="outlined"
+            color="error"
+            startIcon={<LogoutTwoToneIcon />}
+            onClick={() => void logout()}
+          >
+            Sair
+          </Button>
+        </Box>
         <Routes>
           <Route path="/" element={<Clientes />} />
           <Route path="/emprestimos" element={<Emprestimos />} />
