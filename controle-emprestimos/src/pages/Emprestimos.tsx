@@ -1028,8 +1028,12 @@ function Emprestimos() {
                     >
                       Pagar somente juros de atraso
                     </Button>
+                    <Typography variant="body2" color="text.secondary">
+                      No campo abaixo, digite o valor que será pago parcialmente.
+                    </Typography>
                     <NumericField
                       label="Pagamento parcial"
+                      placeholder="0,00"
                       value={pagamentoParcial}
                       onChange={setPagamentoParcial}
                     />
