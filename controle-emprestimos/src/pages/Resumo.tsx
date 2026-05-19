@@ -40,7 +40,9 @@ import { useAuth } from "../contexts/AuthContext";
 import {
   getDiasEmAtraso,
   getJurosAtrasoEmprestimo,
-  getValorAtualizadoEmprestimo,
+  getSaldoEmprestimo,
+  getTotalPagoEmprestimo,
+  isEmprestimoQuitado,
 } from "../utils/emprestimos";
 import {
   exportBackup,
@@ -243,7 +245,7 @@ function Resumo() {
     const acumulado = new Map<string, ReceberPorCliente>();
 
     emprestimos
-      .filter((emprestimo) => !emprestimo.pago)
+      .filter((emprestimo) => !isEmprestimoQuitado(emprestimo, hoje))
       .forEach((emprestimo) => {
         const cliente = clientesPorId.get(emprestimo.clienteId);
         if (!cliente) return;
@@ -260,7 +262,7 @@ function Resumo() {
           totalVencido: 0,
           proximoVencimento: emprestimo.vencimento,
         };
-        const valorAtualizado = getValorAtualizadoEmprestimo(emprestimo, hoje);
+        const valorAtualizado = getSaldoEmprestimo(emprestimo, hoje);
         const jurosAtraso = getJurosAtrasoEmprestimo(emprestimo, hoje);
 
         registro.quantidade += 1;
@@ -285,7 +287,7 @@ function Resumo() {
 
     emprestimos
       .filter((emprestimo) => {
-        if (emprestimo.pago) return false;
+        if (isEmprestimoQuitado(emprestimo, hoje)) return false;
         const vencimento = new Date(`${emprestimo.vencimento}T00:00:00`);
         return vencimento < hoje;
       })
@@ -303,7 +305,7 @@ function Resumo() {
         };
 
         registro.quantidade += 1;
-        registro.total += getValorAtualizadoEmprestimo(emprestimo, hoje);
+        registro.total += getSaldoEmprestimo(emprestimo, hoje);
         if (emprestimo.vencimento < registro.maisAntigo) {
           registro.maisAntigo = emprestimo.vencimento;
         }
@@ -320,18 +322,22 @@ function Resumo() {
     const acumulado = new Map<string, JurosPorCliente>();
 
     emprestimos
-      .filter((emprestimo) => !emprestimo.pago)
+      .filter((emprestimo) => !isEmprestimoQuitado(emprestimo, hoje))
       .forEach((emprestimo) => {
         const cliente = clientesPorId.get(emprestimo.clienteId);
         if (!cliente) return;
 
         const taxa = Number(cliente.juros) || 0;
-        const valorAtualizado = getValorAtualizadoEmprestimo(emprestimo, hoje);
+        const valorAtualizado = getSaldoEmprestimo(emprestimo, hoje);
         const principalEstimado =
           taxa > 0 ? emprestimo.valor / (1 + taxa / 100) : emprestimo.valor;
         const jurosEstimados =
-          Math.max(emprestimo.valor - principalEstimado, 0) +
-          getJurosAtrasoEmprestimo(emprestimo, hoje);
+          Math.max(
+            Math.max(emprestimo.valor - principalEstimado, 0) +
+              getJurosAtrasoEmprestimo(emprestimo, hoje) -
+              getTotalPagoEmprestimo(emprestimo),
+            0,
+          );
         const registro = acumulado.get(cliente.id) ?? {
           clienteId: cliente.id,
           nome: cliente.nome,
@@ -436,22 +442,24 @@ function Resumo() {
   }
 
   const graficos = useMemo<ResumoGrafico[]>(() => {
-    const emAberto = emprestimos.filter((emprestimo) => !emprestimo.pago);
+    const emAberto = emprestimos.filter(
+      (emprestimo) => !isEmprestimoQuitado(emprestimo, hoje),
+    );
     const vencidos = emAberto.filter((emprestimo) => {
       const vencimento = new Date(`${emprestimo.vencimento}T00:00:00`);
       return vencimento < hoje;
     });
 
     const total = emprestimos.reduce(
-      (acc, emprestimo) => acc + getValorAtualizadoEmprestimo(emprestimo, hoje),
+      (acc, emprestimo) => acc + getSaldoEmprestimo(emprestimo, hoje),
       0,
     );
     const totalAReceber = emAberto.reduce(
-      (acc, emprestimo) => acc + getValorAtualizadoEmprestimo(emprestimo, hoje),
+      (acc, emprestimo) => acc + getSaldoEmprestimo(emprestimo, hoje),
       0,
     );
     const totalVencidos = vencidos.reduce(
-      (acc, emprestimo) => acc + getValorAtualizadoEmprestimo(emprestimo, hoje),
+      (acc, emprestimo) => acc + getSaldoEmprestimo(emprestimo, hoje),
       0,
     );
 

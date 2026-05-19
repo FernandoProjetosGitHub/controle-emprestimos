@@ -10,6 +10,16 @@ export type Emprestimo = {
   grupoId?: string;
   parcelaAtual?: number;
   parcelasTotal?: number;
+  pagamentos?: PagamentoEmprestimo[];
   pago: boolean;
   travado: boolean;
+};
+
+export type TipoPagamentoEmprestimo = "total" | "semJuros" | "juros" | "parcial";
+
+export type PagamentoEmprestimo = {
+  id: string;
+  valor: number;
+  tipo: TipoPagamentoEmprestimo;
+  data: string;
 };

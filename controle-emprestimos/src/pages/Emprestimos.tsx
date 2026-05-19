@@ -4,6 +4,10 @@ import {
   Button,
   Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   IconButton,
   InputLabel,
@@ -27,7 +31,6 @@ import TabelaVazia from "../components/TabelaVazia";
 import LockOutlineTwoToneIcon from "@mui/icons-material/LockOutlineTwoTone";
 import LockOpenTwoToneIcon from "@mui/icons-material/LockOpenTwoTone";
 import PaidTwoToneIcon from "@mui/icons-material/PaidTwoTone";
-import CheckCircleTwoToneIcon from "@mui/icons-material/CheckCircleTwoTone";
 import ReplayTwoToneIcon from "@mui/icons-material/ReplayTwoTone";
 import DeleteTwoToneIcon from "@mui/icons-material/DeleteTwoTone";
 import WarningAmberTwoToneIcon from "@mui/icons-material/WarningAmberTwoTone";
@@ -41,8 +44,14 @@ import { archiveItem, getStorageEventName, loadList, saveList } from "../utils/s
 import {
   getDiasEmAtraso,
   getHojeReferencia,
+  getJurosAtrasoEmprestimo,
+  getSaldoEmprestimo,
+  getTotalPagoEmprestimo,
   getValorAtualizadoEmprestimo,
+  getValorBaseRestante,
+  isEmprestimoQuitado,
 } from "../utils/emprestimos";
+import type { TipoPagamentoEmprestimo } from "../types/emprestimo";
 
 const moeda = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -110,7 +119,7 @@ function getHoje() {
 }
 
 function getStatusEmprestimo(emprestimo: Emprestimo): StatusEmprestimo {
-  if (emprestimo.pago) return "pago";
+  if (isEmprestimoQuitado(emprestimo)) return "pago";
 
   const vencimento = new Date(`${emprestimo.vencimento}T00:00:00`);
   return vencimento < getHoje() ? "atrasado" : "emDia";
@@ -128,7 +137,7 @@ function getGrupoParcelasId(emprestimo: Emprestimo) {
 }
 
 function getStatusGrupo(parcelas: Emprestimo[]): StatusEmprestimo {
-  if (parcelas.every((parcela) => parcela.pago)) return "pago";
+  if (parcelas.every((parcela) => isEmprestimoQuitado(parcela))) return "pago";
   if (parcelas.some((parcela) => getStatusEmprestimo(parcela) === "atrasado")) {
     return "atrasado";
   }
@@ -156,6 +165,7 @@ function Emprestimos() {
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("todos");
   const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
   const [idParaPagar, setIdParaPagar] = useState<string | null>(null);
+  const [pagamentoParcial, setPagamentoParcial] = useState("");
   const [notificacao, setNotificacao] = useState<{
     mensagem: string;
     tipo: "erro" | "aviso" | "sucesso";
@@ -165,7 +175,10 @@ function Emprestimos() {
   const emprestimoSelecionado = lista.find(
     (emprestimo) => emprestimo.id === idParaPagar,
   );
-  const pagamentoDialogColor = emprestimoSelecionado?.pago
+  const emprestimoSelecionadoQuitado = emprestimoSelecionado
+    ? isEmprestimoQuitado(emprestimoSelecionado)
+    : false;
+  const pagamentoDialogColor = emprestimoSelecionadoQuitado
     ? colors.warning
     : colors.success;
   const vencimentoFinalPrevisto = vencimento
@@ -260,17 +273,64 @@ function Emprestimos() {
     );
   }
 
-  function confirmarPagamento() {
+  function fecharPagamento() {
+    setIdParaPagar(null);
+    setPagamentoParcial("");
+  }
+
+  function registrarPagamento(tipo: TipoPagamentoEmprestimo, valorInformado?: number) {
     if (!idParaPagar) return;
 
     setLista((prev) =>
-      prev.map((emprestimo) =>
-        emprestimo.id === idParaPagar
-          ? { ...emprestimo, pago: !emprestimo.pago }
-          : emprestimo,
-      ),
+      prev.map((emprestimo) => {
+        if (emprestimo.id !== idParaPagar) return emprestimo;
+
+        if (isEmprestimoQuitado(emprestimo)) {
+          return { ...emprestimo, pago: false, pagamentos: [] };
+        }
+
+        const saldo = getSaldoEmprestimo(emprestimo);
+        const jurosAtraso = getJurosAtrasoEmprestimo(emprestimo);
+        const valorBaseRestante = getValorBaseRestante(emprestimo);
+        const valor =
+          tipo === "total"
+            ? saldo
+            : tipo === "semJuros"
+              ? Math.min(valorBaseRestante, saldo)
+              : tipo === "juros"
+                ? Math.min(jurosAtraso, saldo)
+                : Math.min(valorInformado ?? 0, saldo);
+
+        if (valor <= 0) return emprestimo;
+
+        const pagamentos = [
+          ...(emprestimo.pagamentos ?? []),
+          {
+            id: crypto.randomUUID(),
+            valor,
+            tipo,
+            data: new Date().toISOString(),
+          },
+        ];
+        const atualizado = { ...emprestimo, pagamentos, pago: false };
+
+        return {
+          ...atualizado,
+          pago: isEmprestimoQuitado(atualizado),
+        };
+      }),
     );
-    setIdParaPagar(null);
+    fecharPagamento();
+  }
+
+  function registrarPagamentoParcial() {
+    const valorPagamento = Number(pagamentoParcial) / 100;
+    if (!valorPagamento) {
+      notificar("Informe o valor do pagamento parcial.", "aviso");
+      return;
+    }
+
+    registrarPagamento("parcial", valorPagamento);
   }
 
   function confirmarExclusao() {
@@ -527,11 +587,13 @@ function Emprestimos() {
                     const status = getStatusGrupo(parcelasGrupo);
                     const config = statusConfig[status];
                     const aberto = !!gruposExpandidos[linha.id];
-                    const totalAtualizado = parcelasGrupo.reduce(
-                      (acc, parcela) => acc + getValorAtualizadoEmprestimo(parcela),
+                    const saldoGrupo = parcelasGrupo.reduce(
+                      (acc, parcela) => acc + getSaldoEmprestimo(parcela),
                       0,
                     );
-                    const pagas = parcelasGrupo.filter((parcela) => parcela.pago).length;
+                    const pagas = parcelasGrupo.filter((parcela) =>
+                      isEmprestimoQuitado(parcela),
+                    ).length;
                     const totalParcelas = primeiraParcela.parcelasTotal ?? parcelasGrupo.length;
 
                     return (
@@ -572,7 +634,7 @@ function Emprestimos() {
                           </TableCell>
                           <TableCell>
                             <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                              {moeda.format(totalAtualizado)}
+                              {moeda.format(saldoGrupo)}
                             </Typography>
                           </TableCell>
                           <TableCell>{pagas}/{totalParcelas} pagas</TableCell>
@@ -599,6 +661,8 @@ function Emprestimos() {
                             const statusParcela = getStatusEmprestimo(emprestimo);
                             const configParcela = statusConfig[statusParcela];
                             const valorAtualizado = getValorAtualizadoEmprestimo(emprestimo);
+                            const saldo = getSaldoEmprestimo(emprestimo);
+                            const totalPago = getTotalPagoEmprestimo(emprestimo);
                             const diasEmAtraso = getDiasEmAtraso(emprestimo.vencimento);
 
                             return (
@@ -615,9 +679,14 @@ function Emprestimos() {
                                 </TableCell>
                                 <TableCell>
                                   <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                    {moeda.format(valorAtualizado)}
+                                    {moeda.format(saldo)}
                                   </Typography>
-                                  {diasEmAtraso > 0 && !emprestimo.pago && (
+                                  {totalPago > 0 && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                                      Pago {moeda.format(totalPago)} de {moeda.format(valorAtualizado)}
+                                    </Typography>
+                                  )}
+                                  {diasEmAtraso > 0 && !isEmprestimoQuitado(emprestimo) && (
                                     <Typography variant="caption" color="text.secondary">
                                       Base {moeda.format(emprestimo.valor)} + 8% ao dia
                                     </Typography>
@@ -652,7 +721,7 @@ function Emprestimos() {
                                       onClick={() => setIdParaPagar(emprestimo.id)}
                                       color={colors.warning}
                                     >
-                                      {emprestimo.pago ? <ReplayTwoToneIcon /> : <PaidTwoToneIcon />}
+                                      {isEmprestimoQuitado(emprestimo) ? <ReplayTwoToneIcon /> : <PaidTwoToneIcon />}
                                     </ActionIcon>
 
                                     <ActionIcon
@@ -693,6 +762,8 @@ function Emprestimos() {
                   const status = getStatusEmprestimo(emprestimo);
                   const config = statusConfig[status];
                   const valorAtualizado = getValorAtualizadoEmprestimo(emprestimo);
+                  const saldo = getSaldoEmprestimo(emprestimo);
+                  const totalPago = getTotalPagoEmprestimo(emprestimo);
                   const diasEmAtraso = getDiasEmAtraso(emprestimo.vencimento);
 
                   return (
@@ -711,9 +782,14 @@ function Emprestimos() {
                       <TableCell>{getNomeCliente(emprestimo.clienteId)}</TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                          {moeda.format(valorAtualizado)}
+                          {moeda.format(saldo)}
                         </Typography>
-                        {diasEmAtraso > 0 && !emprestimo.pago && (
+                        {totalPago > 0 && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                            Pago {moeda.format(totalPago)} de {moeda.format(valorAtualizado)}
+                          </Typography>
+                        )}
+                        {diasEmAtraso > 0 && !isEmprestimoQuitado(emprestimo) && (
                           <Typography variant="caption" color="text.secondary">
                             Base {moeda.format(emprestimo.valor)} + 8% ao dia
                           </Typography>
@@ -763,7 +839,7 @@ function Emprestimos() {
                             onClick={() => setIdParaPagar(emprestimo.id)}
                             color={colors.warning}
                           >
-                            {emprestimo.pago ? (
+                            {isEmprestimoQuitado(emprestimo) ? (
                               <ReplayTwoToneIcon />
                             ) : (
                               <PaidTwoToneIcon />
@@ -806,26 +882,68 @@ function Emprestimos() {
           </Table>
         </TableContainer>
 
-        <ConfirmDialog
+        <Dialog
           open={!!idParaPagar}
-          onClose={() => setIdParaPagar(null)}
-          onConfirm={confirmarPagamento}
-          title="Confirmar ação"
-          description="Você está prestes a"
-          highlightText={
-            emprestimoSelecionado?.pago
-              ? "reverter pagamento"
-              : "marcar como pago"
-          }
-          color={pagamentoDialogColor}
-          icon={
-            emprestimoSelecionado?.pago ? (
-              <ReplayTwoToneIcon sx={{ color: pagamentoDialogColor }} />
-            ) : (
-              <CheckCircleTwoToneIcon sx={{ color: pagamentoDialogColor }} />
-            )
-          }
-        />
+          onClose={fecharPagamento}
+          fullWidth
+          maxWidth="xs"
+          slotProps={{
+            paper: {
+              sx: { borderRadius: 2, mx: 1.5 },
+            },
+          }}
+        >
+          <DialogTitle>
+            {emprestimoSelecionadoQuitado ? "Desfazer pagamento" : "Registrar pagamento"}
+          </DialogTitle>
+          <DialogContent>
+            {emprestimoSelecionado && (
+              <Box sx={{ display: "grid", gap: 1.25, mt: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Saldo atual: {moeda.format(getSaldoEmprestimo(emprestimoSelecionado))}
+                </Typography>
+
+                {emprestimoSelecionadoQuitado ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Isso remove os pagamentos registrados nesta parcela.
+                  </Typography>
+                ) : (
+                  <>
+                    <Button variant="contained" onClick={() => registrarPagamento("total")}>
+                      Pagar total atualizado
+                    </Button>
+                    <Button variant="outlined" onClick={() => registrarPagamento("semJuros")}>
+                      Pagar valor sem juros de atraso
+                    </Button>
+                    <Button variant="outlined" onClick={() => registrarPagamento("juros")}>
+                      Pagar somente juros de atraso
+                    </Button>
+                    <NumericField
+                      label="Pagamento parcial"
+                      value={pagamentoParcial}
+                      onChange={setPagamentoParcial}
+                    />
+                    <Button variant="outlined" onClick={registrarPagamentoParcial}>
+                      Registrar parcial
+                    </Button>
+                  </>
+                )}
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={fecharPagamento}>Cancelar</Button>
+            {emprestimoSelecionadoQuitado && (
+              <Button
+                variant="contained"
+                sx={{ bgcolor: pagamentoDialogColor }}
+                onClick={() => registrarPagamento("total")}
+              >
+                Desfazer
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
 
         <ConfirmDialog
           open={!!idParaExcluir}
