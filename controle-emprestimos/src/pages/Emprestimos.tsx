@@ -63,6 +63,12 @@ type StatusEmprestimo = "pago" | "atrasado" | "emDia";
 type LinhaTabela =
   | { tipo: "simples"; id: string; emprestimo: Emprestimo }
   | { tipo: "grupo"; id: string; parcelas: Emprestimo[] };
+type AcaoPagamentoPendente = {
+  tipo: TipoPagamentoEmprestimo | "desfazer";
+  valor?: number;
+  label: string;
+  mensagemSucesso: string;
+};
 
 const statusConfig = {
   pago: {
@@ -166,6 +172,8 @@ function Emprestimos() {
   const [idParaExcluir, setIdParaExcluir] = useState<string | null>(null);
   const [idParaPagar, setIdParaPagar] = useState<string | null>(null);
   const [pagamentoParcial, setPagamentoParcial] = useState("");
+  const [acaoPagamentoPendente, setAcaoPagamentoPendente] =
+    useState<AcaoPagamentoPendente | null>(null);
   const [notificacao, setNotificacao] = useState<{
     mensagem: string;
     tipo: "erro" | "aviso" | "sucesso";
@@ -181,6 +189,18 @@ function Emprestimos() {
   const pagamentoDialogColor = emprestimoSelecionadoQuitado
     ? colors.warning
     : colors.success;
+  const saldoSelecionado = emprestimoSelecionado
+    ? getSaldoEmprestimo(emprestimoSelecionado)
+    : 0;
+  const totalPagoSelecionado = emprestimoSelecionado
+    ? getTotalPagoEmprestimo(emprestimoSelecionado)
+    : 0;
+  const jurosAtrasoSelecionado = emprestimoSelecionado
+    ? getJurosAtrasoEmprestimo(emprestimoSelecionado)
+    : 0;
+  const valorBaseRestanteSelecionado = emprestimoSelecionado
+    ? getValorBaseRestante(emprestimoSelecionado)
+    : 0;
   const vencimentoFinalPrevisto = vencimento
     ? adicionarMeses(vencimento, parcelas - 1)
     : "";
@@ -276,16 +296,27 @@ function Emprestimos() {
   function fecharPagamento() {
     setIdParaPagar(null);
     setPagamentoParcial("");
+    setAcaoPagamentoPendente(null);
   }
 
-  function registrarPagamento(tipo: TipoPagamentoEmprestimo, valorInformado?: number) {
+  function prepararPagamento(acao: AcaoPagamentoPendente) {
+    setAcaoPagamentoPendente(acao);
+  }
+
+  function confirmarPagamentoPendente() {
+    if (!acaoPagamentoPendente) return;
+
+    registrarPagamento(acaoPagamentoPendente);
+  }
+
+  function registrarPagamento(acao: AcaoPagamentoPendente) {
     if (!idParaPagar) return;
 
     setLista((prev) =>
       prev.map((emprestimo) => {
         if (emprestimo.id !== idParaPagar) return emprestimo;
 
-        if (isEmprestimoQuitado(emprestimo)) {
+        if (acao.tipo === "desfazer") {
           return { ...emprestimo, pago: false, pagamentos: [] };
         }
 
@@ -293,13 +324,13 @@ function Emprestimos() {
         const jurosAtraso = getJurosAtrasoEmprestimo(emprestimo);
         const valorBaseRestante = getValorBaseRestante(emprestimo);
         const valor =
-          tipo === "total"
+          acao.tipo === "total"
             ? saldo
-            : tipo === "semJuros"
+            : acao.tipo === "semJuros"
               ? Math.min(valorBaseRestante, saldo)
-              : tipo === "juros"
+              : acao.tipo === "juros"
                 ? Math.min(jurosAtraso, saldo)
-                : Math.min(valorInformado ?? 0, saldo);
+                : Math.min(acao.valor ?? 0, saldo);
 
         if (valor <= 0) return emprestimo;
 
@@ -308,7 +339,7 @@ function Emprestimos() {
           {
             id: crypto.randomUUID(),
             valor,
-            tipo,
+            tipo: acao.tipo,
             data: new Date().toISOString(),
           },
         ];
@@ -320,17 +351,24 @@ function Emprestimos() {
         };
       }),
     );
+    notificar(acao.mensagemSucesso, "sucesso");
     fecharPagamento();
   }
 
   function registrarPagamentoParcial() {
-    const valorPagamento = Number(pagamentoParcial) / 100;
+    const valorDigitado = Number(pagamentoParcial) / 100;
+    const valorPagamento = Math.min(valorDigitado, saldoSelecionado);
     if (!valorPagamento) {
       notificar("Informe o valor do pagamento parcial.", "aviso");
       return;
     }
 
-    registrarPagamento("parcial", valorPagamento);
+    prepararPagamento({
+      tipo: "parcial",
+      valor: valorPagamento,
+      label: `registrar pagamento parcial de ${moeda.format(valorPagamento)}`,
+      mensagemSucesso: "Pagamento parcial registrado com sucesso!",
+    });
   }
 
   function confirmarExclusao() {
@@ -899,9 +937,49 @@ function Emprestimos() {
           <DialogContent>
             {emprestimoSelecionado && (
               <Box sx={{ display: "grid", gap: 1.25, mt: 1 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Saldo atual: {moeda.format(getSaldoEmprestimo(emprestimoSelecionado))}
-                </Typography>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 1,
+                    p: 1.5,
+                    borderRadius: 1,
+                    bgcolor: colors.petroleumLight,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Saldo
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                      {moeda.format(saldoSelecionado)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Ja pago
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                      {moeda.format(totalPagoSelecionado)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Base restante
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                      {moeda.format(valorBaseRestanteSelecionado)}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Juros atraso
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                      {moeda.format(jurosAtrasoSelecionado)}
+                    </Typography>
+                  </Box>
+                </Box>
 
                 {emprestimoSelecionadoQuitado ? (
                   <Typography variant="body2" color="text.secondary">
@@ -909,13 +987,45 @@ function Emprestimos() {
                   </Typography>
                 ) : (
                   <>
-                    <Button variant="contained" onClick={() => registrarPagamento("total")}>
+                    <Typography variant="body2" color="text.secondary">
+                      Escolha como este recebimento deve ser registrado.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={() =>
+                        prepararPagamento({
+                          tipo: "total",
+                          label: "pagar o total atualizado",
+                          mensagemSucesso: "Pagamento total registrado com sucesso!",
+                        })
+                      }
+                    >
                       Pagar total atualizado
                     </Button>
-                    <Button variant="outlined" onClick={() => registrarPagamento("semJuros")}>
+                    <Button
+                      variant="outlined"
+                      disabled={valorBaseRestanteSelecionado <= 0}
+                      onClick={() =>
+                        prepararPagamento({
+                          tipo: "semJuros",
+                          label: "pagar o valor sem juros de atraso",
+                          mensagemSucesso: "Pagamento sem juros registrado com sucesso!",
+                        })
+                      }
+                    >
                       Pagar valor sem juros de atraso
                     </Button>
-                    <Button variant="outlined" onClick={() => registrarPagamento("juros")}>
+                    <Button
+                      variant="outlined"
+                      disabled={jurosAtrasoSelecionado <= 0}
+                      onClick={() =>
+                        prepararPagamento({
+                          tipo: "juros",
+                          label: "pagar somente os juros de atraso",
+                          mensagemSucesso: "Pagamento dos juros registrado com sucesso!",
+                        })
+                      }
+                    >
                       Pagar somente juros de atraso
                     </Button>
                     <NumericField
@@ -937,13 +1047,36 @@ function Emprestimos() {
               <Button
                 variant="contained"
                 sx={{ bgcolor: pagamentoDialogColor }}
-                onClick={() => registrarPagamento("total")}
+                onClick={() =>
+                  prepararPagamento({
+                    tipo: "desfazer",
+                    label: "desfazer os pagamentos desta parcela",
+                    mensagemSucesso: "Pagamento desfeito com sucesso!",
+                  })
+                }
               >
                 Desfazer
               </Button>
             )}
           </DialogActions>
         </Dialog>
+
+        <ConfirmDialog
+          open={!!acaoPagamentoPendente}
+          onClose={() => setAcaoPagamentoPendente(null)}
+          onConfirm={confirmarPagamentoPendente}
+          title="Confirmar pagamento"
+          description="Você está prestes a"
+          highlightText={acaoPagamentoPendente?.label ?? "registrar pagamento"}
+          color={acaoPagamentoPendente?.tipo === "desfazer" ? colors.warning : colors.success}
+          icon={
+            acaoPagamentoPendente?.tipo === "desfazer" ? (
+              <ReplayTwoToneIcon sx={{ color: colors.warning }} />
+            ) : (
+              <PaidTwoToneIcon sx={{ color: colors.success }} />
+            )
+          }
+        />
 
         <ConfirmDialog
           open={!!idParaExcluir}
