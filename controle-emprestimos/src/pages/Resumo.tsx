@@ -43,6 +43,7 @@ import {
   getSaldoEmprestimo,
   getTotalPagoEmprestimo,
   isEmprestimoQuitado,
+  VALOR_ATRASO_DIARIO,
 } from "../utils/emprestimos";
 import {
   exportBackup,
@@ -100,6 +101,7 @@ const moeda = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
+const valorAtrasoDiarioLabel = moeda.format(VALOR_ATRASO_DIARIO);
 
 function GraficoResumo({
   item,
@@ -811,7 +813,7 @@ function Resumo() {
                         <TableCell align="right">
                           {item.diasEmAtraso}
                           <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                            8% ao dia
+                            {valorAtrasoDiarioLabel} por dia
                           </Typography>
                         </TableCell>
                       </TableRow>

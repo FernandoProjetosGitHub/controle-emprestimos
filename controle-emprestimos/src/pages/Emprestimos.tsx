@@ -50,6 +50,7 @@ import {
   getValorAtualizadoEmprestimo,
   getValorBaseRestante,
   isEmprestimoQuitado,
+  VALOR_ATRASO_DIARIO,
 } from "../utils/emprestimos";
 import type { TipoPagamentoEmprestimo } from "../types/emprestimo";
 
@@ -57,6 +58,7 @@ const moeda = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
+const valorAtrasoDiarioLabel = moeda.format(VALOR_ATRASO_DIARIO);
 
 type FiltroStatus = "todos" | "emDia" | "pago" | "atrasado";
 type StatusEmprestimo = "pago" | "atrasado" | "emDia";
@@ -726,7 +728,7 @@ function Emprestimos() {
                                   )}
                                   {diasEmAtraso > 0 && !isEmprestimoQuitado(emprestimo) && (
                                     <Typography variant="caption" color="text.secondary">
-                                      Base {moeda.format(emprestimo.valor)} + 8% ao dia
+                                      Base {moeda.format(emprestimo.valor)} + {valorAtrasoDiarioLabel} por dia
                                     </Typography>
                                   )}
                                 </TableCell>
@@ -829,7 +831,7 @@ function Emprestimos() {
                         )}
                         {diasEmAtraso > 0 && !isEmprestimoQuitado(emprestimo) && (
                           <Typography variant="caption" color="text.secondary">
-                            Base {moeda.format(emprestimo.valor)} + 8% ao dia
+                            Base {moeda.format(emprestimo.valor)} + {valorAtrasoDiarioLabel} por dia
                           </Typography>
                         )}
                       </TableCell>

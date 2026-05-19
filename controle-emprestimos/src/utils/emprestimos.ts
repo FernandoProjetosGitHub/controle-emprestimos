@@ -1,6 +1,6 @@
 import type { Emprestimo } from "../types/emprestimo";
 
-const JUROS_ATRASO_DIARIO = 0.08;
+export const VALOR_ATRASO_DIARIO = 30;
 const MILISSEGUNDOS_POR_DIA = 86_400_000;
 
 export function getHojeReferencia() {
@@ -24,7 +24,7 @@ export function getValorAtualizadoEmprestimo(
   const diasEmAtraso = getDiasEmAtraso(emprestimo.vencimento, hoje);
   if (diasEmAtraso === 0) return emprestimo.valor;
 
-  return emprestimo.valor * (1 + JUROS_ATRASO_DIARIO) ** diasEmAtraso;
+  return emprestimo.valor + VALOR_ATRASO_DIARIO * diasEmAtraso;
 }
 
 export function getJurosAtrasoEmprestimo(
