@@ -1,7 +1,7 @@
 :root {
   font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
-  color: #172033;
-  background: #f7f2e8;
+  color: var(--app-text, #172033);
+  background: var(--app-background, #f7f2e8);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;

@@ -3,18 +3,24 @@ import {
   Alert,
   Box,
   Button,
+  IconButton,
   Container,
   LinearProgress,
   Paper,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import LoginTwoToneIcon from "@mui/icons-material/LoginTwoTone";
-import PersonAddAltTwoToneIcon from "@mui/icons-material/PersonAddAltTwoTone";
-import { colors } from "../theme";
+import { BsMoonStarsFill, BsSunFill } from "react-icons/bs";
+import { FiLogIn, FiUserPlus } from "react-icons/fi";
+import { type AppColorMode, colors } from "../theme";
 import { useAuth } from "../contexts/AuthContext";
 
 type FormMode = "entrar" | "criar";
+type Props = {
+  colorMode: AppColorMode;
+  onToggleTheme: () => void;
+};
 
 const brandLogo = `${import.meta.env.BASE_URL}brand-jurista.png`;
 
@@ -45,7 +51,7 @@ function getPasswordScore(password: string) {
   return Math.min(score, 4);
 }
 
-export default function Acesso() {
+export default function Acesso({ colorMode, onToggleTheme }: Props) {
   const { login, createAccount } = useAuth();
   const [mode, setMode] = useState<FormMode>("entrar");
   const [email, setEmail] = useState("");
@@ -121,6 +127,26 @@ export default function Acesso() {
             bgcolor: "background.paper",
           }}
         >
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+            <Tooltip title={colorMode === "dark" ? "Usar modo claro" : "Usar modo noturno"}>
+              <IconButton
+                aria-label={colorMode === "dark" ? "Ativar modo claro" : "Ativar modo noturno"}
+                onClick={onToggleTheme}
+                size="small"
+                sx={{
+                  color: colorMode === "dark" ? colors.warning : colors.petroleum,
+                  bgcolor: colorMode === "dark" ? colors.warningLight : colors.petroleumLight,
+                  border: `1px solid ${colors.border}`,
+                  "&:hover": {
+                    bgcolor: colorMode === "dark" ? colors.warningLight : colors.petroleumLight,
+                  },
+                }}
+              >
+                {colorMode === "dark" ? <BsSunFill size={16} /> : <BsMoonStarsFill size={15} />}
+              </IconButton>
+            </Tooltip>
+          </Box>
+
           <Box sx={{ textAlign: "center", mb: 2.5 }}>
             <Box
               component="img"
@@ -203,7 +229,7 @@ export default function Acesso() {
 
             <Button
               variant="contained"
-              startIcon={<LoginTwoToneIcon />}
+              startIcon={<FiLogIn />}
               disabled={busy}
               onClick={() => void handleSubmit("entrar")}
             >
@@ -211,7 +237,7 @@ export default function Acesso() {
             </Button>
             <Button
               variant={mode === "criar" ? "contained" : "outlined"}
-              startIcon={<PersonAddAltTwoToneIcon />}
+              startIcon={<FiUserPlus />}
               disabled={busy}
               onClick={() => {
                 if (mode === "criar") {

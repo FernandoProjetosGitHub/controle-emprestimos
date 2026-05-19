@@ -74,17 +74,17 @@ const statusConfig = {
   pago: {
     label: "Pago",
     color: colors.success,
-    background: "rgba(30, 122, 90, 0.12)",
+    background: colors.successLight,
   },
   atrasado: {
     label: "Atrasado",
     color: colors.error,
-    background: "rgba(184, 58, 58, 0.13)",
+    background: colors.errorLight,
   },
   emDia: {
     label: "Em andamento",
     color: colors.petroleum,
-    background: "rgba(18, 48, 71, 0.11)",
+    background: colors.petroleumLight,
   },
 } satisfies Record<StatusEmprestimo, { label: string; color: string; background: string }>;
 
@@ -584,8 +584,8 @@ function Emprestimos() {
           />
         </Box>
 
-        <TableContainer component={Paper} sx={{ bgcolor: "#fff", overflowX: "auto" }}>
-          <Table sx={{ bgcolor: "#fff", minWidth: 1020 }}>
+        <TableContainer component={Paper} sx={{ bgcolor: colors.surfaceElevated, overflowX: "auto" }}>
+          <Table sx={{ bgcolor: colors.surfaceElevated, minWidth: 1020 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Cliente</TableCell>
@@ -681,7 +681,7 @@ function Emprestimos() {
                               label={config.label}
                               size="small"
                               sx={{
-                                bgcolor: "rgba(255,255,255,0.7)",
+                                bgcolor: colors.surfaceElevated,
                                 color: config.color,
                                 fontWeight: 700,
                                 border: `1px solid ${config.color}33`,
@@ -708,7 +708,7 @@ function Emprestimos() {
                                 key={emprestimo.id}
                                 hover
                                 sx={{
-                                  bgcolor: "#fff",
+                                  bgcolor: colors.surfaceElevated,
                                   borderLeft: `4px solid ${configParcela.color}`,
                                 }}
                               >
@@ -736,7 +736,7 @@ function Emprestimos() {
                                     label={configParcela.label}
                                     size="small"
                                     sx={{
-                                      bgcolor: "rgba(255,255,255,0.7)",
+                                      bgcolor: colors.surfaceElevated,
                                       color: configParcela.color,
                                       fontWeight: 700,
                                       border: `1px solid ${configParcela.color}33`,
@@ -843,7 +843,7 @@ function Emprestimos() {
                           label={config.label}
                           size="small"
                           sx={{
-                            bgcolor: "rgba(255,255,255,0.7)",
+                            bgcolor: colors.surfaceElevated,
                             color: config.color,
                             fontWeight: 700,
                             border: `1px solid ${config.color}33`,
